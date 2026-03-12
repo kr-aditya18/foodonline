@@ -22,9 +22,12 @@
 
 	<!-- JAVASCRIPT -->
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+	<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+	<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 	<script src="{% static 'js/modernizr.js' %}"></script>
 	<script src="{% static 'js/bootstrap.js' %}"></script>
 
+	
 	<style>
 		body, .main-section p, .mce-content-body p{
 			font:Normal 14px/24px "Open Sans", sans-serif;
@@ -33,6 +36,8 @@
 			color: var(--text) !important;
 		}
 	</style>
+
+	
 
 </head>
 
@@ -48,6 +53,8 @@
 	<!-- Footer -->
 	{% include "includes/footer.html" %}
 
-</script>
+
+	<script src="{% static 'js/scripts.js' %}"></script>
+	<script src="{% static 'js/address_autocomplete.js' %}"></script>
 </body>
 </html>

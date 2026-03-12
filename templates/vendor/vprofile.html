@@ -103,11 +103,14 @@
 														</div>
 
 														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
-															<div class="field-holder">
-																<label>Address *</label>
-																{{profile_form.address}}
-                                                                <small class="text-muted float-right">powered by Google</small>
-															</div>
+															 <div class="field-holder">
+    <label>Address *</label>
+    <input type="text" id="id_address" name="address" 
+       placeholder="Start Typing..." 
+       class="form-control"
+       value="{{ profile.address|default:'' }}">
+<small class="text-muted float-right">powered by OpenStreetMap</small>  
+</div>
 														</div>
 
 														
@@ -177,6 +180,9 @@
             </div>
         </div>
     </div>
+	
 </div>
+
+
 <!-- Main Section End -->
 {% endblock %}

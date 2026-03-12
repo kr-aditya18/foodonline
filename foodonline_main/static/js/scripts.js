@@ -11725,7 +11725,21 @@ jQuery(document).ready(function () {
     });
     /*Location Popup Function End*/
 
+
+// // ===== Address Autocomplete Detection START =====
+
+// jQuery(document).on('keyup', '#id_address', function(){
+//     var query = jQuery(this).val();
+//     console.log("User typed:", query);
+// });
+
+// ===== Address Autocomplete Detection END =====
+
+
 });
+
+
+
 /*----------Window Load Function Start----------*/
 
 /*HTML Functions End*/
