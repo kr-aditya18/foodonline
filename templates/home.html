@@ -35,15 +35,27 @@
                                 <!-- Location with autocomplete -->
                                 <div class="col-lg-4 col-md-4 col-sm-5 col-xs-12">
                                     <div class="field-holder" style="position:relative;">
-                                        <i class="icon-location" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#999; z-index:1;"></i>
+                                        <i class="icon-location" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#999; z-index:1; pointer-events:none;"></i>
                                         <input type="text" name="address" id="id_search_location"
                                                placeholder="City or area"
                                                value="{{ request.GET.address }}"
-                                               style="padding-left: 32px;">
+                                               autocomplete="off"
+                                               style="padding-left:32px; padding-right:42px;">
                                         <!-- hidden fields auto-filled by JS -->
                                         <input type="hidden" name="city" id="id_search_city">
                                         <input type="hidden" name="lat"  id="id_search_lat">
                                         <input type="hidden" name="lng"  id="id_search_lng">
+
+                                        <!-- GPS detect button -->
+                                        <button type="button" id="home-detect-btn"
+                                                title="Use my current location"
+                                                style="position:absolute; right:10px; top:50%; transform:translateY(-50%);
+                                                       background:#c0392b; border:none; border-radius:50%;
+                                                       width:28px; height:28px; cursor:pointer; color:#fff;
+                                                       display:flex; align-items:center; justify-content:center;
+                                                       font-size:13px; z-index:10;">
+                                            <i class="icon-target5"></i>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -152,6 +164,21 @@
                                         </div>
                                         {% if vendor.user_profile.city and vendor.user_profile.state and vendor.user_profile.pincode %}
                                         <span>{{ vendor.user_profile.city }}, {{ vendor.user_profile.state }}, {{ vendor.user_profile.pincode }}</span>
+                                        {% endif %}
+                                        {% if vendor.distance_km %}
+                                        <div class="mt-1">
+                                            <span style="
+                                                background:#e8f5e9;
+                                                color:#27ae60;
+                                                font-size:11px;
+                                                font-weight:600;
+                                                padding:2px 8px;
+                                                border-radius:20px;
+                                                border:1px solid #27ae60;
+                                                display:inline-block;">
+                                                📍 {{ vendor.distance_km }} km away
+                                            </span>
+                                        </div>
                                         {% endif %}
                                     </div>
                                 </div>

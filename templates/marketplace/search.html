@@ -12,83 +12,126 @@
                     <div class="element-title align-left">
                         <h2>Search Results</h2>
                         {% if keyword and address %}
-                            <p>Showing results for "<strong>{{ keyword }}</strong>" in "<strong>{{ address }}</strong>"</p>
+                            <p>Showing <strong>{{ vendor_count }}</strong> restaurant(s) for "<strong>{{ keyword }}</strong>" near "<strong>{{ address }}</strong>"</p>
                         {% elif keyword %}
-                            <p>Showing results for "<strong>{{ keyword }}</strong>"</p>
+                            <p>Showing <strong>{{ vendor_count }}</strong> restaurant(s) for "<strong>{{ keyword }}</strong>"</p>
                         {% elif address %}
-                            <p>Showing <strong>{{ vendor_count }}</strong> restaurant(s) in "<strong>{{ address }}</strong>"</p>
+                            <p>Showing <strong>{{ vendor_count }}</strong> restaurant(s) near "<strong>{{ address }}</strong>"</p>
                         {% else %}
                             <p>Showing all <strong>{{ vendor_count }}</strong> restaurant(s)</p>
+                        {% endif %}
+
+                        {% if has_coords %}
+                            {% if radius %}
+                                <p class="text-muted" style="font-size:13px;">
+                                    📍 Sorted by nearest &bull; within <strong>{{ radius }} km</strong> radius
+                                </p>
+                            {% else %}
+                                <p class="text-muted" style="font-size:13px;">
+                                    📍 Sorted by nearest distance
+                                </p>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
             </div>
 
-            <!-- ── Restaurants Section ────────────────────────────────────── -->
+            <!-- ── Restaurants ────────────────────────────────────────────── -->
             <div class="row mb-2">
                 <div class="col-lg-12">
-                    <h4 style="border-bottom: 2px solid #c0392b; padding-bottom: 8px; display:inline-block;">
+                    <h4 style="border-bottom:2px solid #c0392b; padding-bottom:8px; display:inline-block;">
                         <i class="icon-location" style="color:#c0392b;"></i>
                         Restaurants
-                        <span class="badge" style="background:#c0392b; color:#fff; font-size:13px; border-radius:12px; padding:3px 10px; margin-left:6px;">{{ vendor_count }}</span>
+                        <span class="badge" style="background:#c0392b;color:#fff;font-size:13px;border-radius:12px;padding:3px 10px;margin-left:6px;">
+                            {{ vendor_count }}
+                        </span>
                     </h4>
                 </div>
             </div>
 
             <div class="row mb-5">
-                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                <div class="col-lg-12">
                     <div class="listing fancy">
                         {% if vendors %}
-                        <ul class="row">
+                        <ul class="row" style="list-style:none; padding:0;">
                             {% for vendor in vendors %}
-                            <li class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
-                                <div class="list-post featured">
-                                    <div class="img-holder">
-                                        <figure>
-                                            <a href="{% url 'vendor_detail' vendor.vendor_slug %}">
-                                                {% if vendor.user_profile.profile_picture %}
-                                                <img src="{{ vendor.user_profile.profile_picture.url }}" class="img-thumb wp-post-image" alt="{{ vendor.vendor_name }}">
-                                                {% else %}
-                                                <img src="{% static 'images/default-profile.png' %}" class="img-thumb wp-post-image" alt="{{ vendor.vendor_name }}">
-                                                {% endif %}
-                                            </a>
-                                        </figure>
+                            <li class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-3">
+                                <div class="list-post featured" style="background:#fff; border-radius:10px; padding:15px; box-shadow:0 2px 8px rgba(0,0,0,0.07); display:flex; align-items:center; gap:15px;">
+                                    <div class="img-holder" style="flex-shrink:0;">
+                                        <a href="{% url 'vendor_detail' vendor.vendor_slug %}">
+                                            {% if vendor.user_profile.profile_picture %}
+                                            <img src="{{ vendor.user_profile.profile_picture.url }}"
+                                                 style="width:80px;height:80px;object-fit:cover;border-radius:8px;"
+                                                 alt="{{ vendor.vendor_name }}">
+                                            {% else %}
+                                            <img src="{% static 'images/default-profile.png' %}"
+                                                 style="width:80px;height:80px;object-fit:cover;border-radius:8px;"
+                                                 alt="{{ vendor.vendor_name }}">
+                                            {% endif %}
+                                        </a>
                                     </div>
-                                    <div class="text-holder">
-                                        <div class="post-title">
-                                            <h5>
-                                                <a href="{% url 'vendor_detail' vendor.vendor_slug %}">{{ vendor.vendor_name }}</a>
-                                            </h5>
-                                        </div>
+                                    <div class="text-holder" style="flex:1;">
+                                        <h5 style="margin:0 0 5px;">
+                                            <a href="{% url 'vendor_detail' vendor.vendor_slug %}"
+                                               style="color:#333; text-decoration:none; font-weight:600;">
+                                                {{ vendor.vendor_name }}
+                                            </a>
+                                        </h5>
                                         {% if vendor.user_profile.city and vendor.user_profile.state %}
-                                        <span>
+                                        <span style="font-size:13px; color:#777;">
                                             <i class="icon-location" style="color:#c0392b;"></i>
                                             {{ vendor.user_profile.city }}, {{ vendor.user_profile.state }}
                                             {% if vendor.user_profile.pincode %} - {{ vendor.user_profile.pincode }}{% endif %}
                                         </span>
                                         {% endif %}
+
+                                        <!-- Distance badge -->
+                                        {% if vendor.distance_km %}
+                                        <div class="mt-2">
+                                            <span style="
+                                                background:#e8f5e9;
+                                                color:#27ae60;
+                                                font-size:12px;
+                                                font-weight:600;
+                                                padding:3px 10px;
+                                                border-radius:20px;
+                                                border:1px solid #27ae60;
+                                                display:inline-block;">
+                                                📍 {{ vendor.distance_km }} km away
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div style="flex-shrink:0;">
+                                        <a href="{% url 'vendor_detail' vendor.vendor_slug %}"
+                                           class="btn btn-sm"
+                                           style="background:#c0392b;color:#fff;border-radius:6px;font-size:13px;padding:6px 14px;">
+                                            View Menu
+                                        </a>
                                     </div>
                                 </div>
                             </li>
                             {% endfor %}
                         </ul>
                         {% else %}
-                        <div class="text-center p-4" style="background:#f9f9f9; border-radius:8px;">
-                            <h5>No restaurants found</h5>
-                            <p class="text-muted">Try a different name or location.</p>
+                        <div class="text-center p-4" style="background:#f9f9f9;border-radius:8px;">
+                            <h5>No Restaurants Found</h5>
+                            <p class="text-muted">Try a different name, location, or increase the radius.</p>
                         </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
 
-            <!-- ── Food Items Section ─────────────────────────────────────── -->
+            <!-- ── Food Items ─────────────────────────────────────────────── -->
             {% if keyword %}
             <div class="row mb-2">
                 <div class="col-lg-12">
-                    <h4 style="border-bottom: 2px solid #27ae60; padding-bottom: 8px; display:inline-block;">
+                    <h4 style="border-bottom:2px solid #27ae60;padding-bottom:8px;display:inline-block;">
                         🍽 Food Items
-                        <span class="badge" style="background:#27ae60; color:#fff; font-size:13px; border-radius:12px; padding:3px 10px; margin-left:6px;">{{ food_item_count }}</span>
+                        <span class="badge" style="background:#27ae60;color:#fff;font-size:13px;border-radius:12px;padding:3px 10px;margin-left:6px;">
+                            {{ food_item_count }}
+                        </span>
                     </h4>
                 </div>
             </div>
@@ -99,59 +142,46 @@
                     <div class="row">
                         {% for item in food_items %}
                         <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12 mb-4">
-                            <div class="card h-100" style="border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-
-                                <!-- Food image -->
+                            <div class="card h-100" style="border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
                                 <a href="{% url 'vendor_detail' item.vendor.vendor_slug %}">
                                     {% if item.image %}
                                     <img src="{{ item.image.url }}" alt="{{ item.food_title }}"
-                                         style="width:100%; height:180px; object-fit:cover;">
+                                         style="width:100%;height:180px;object-fit:cover;">
                                     {% else %}
                                     <img src="{% static 'images/default-food.png' %}" alt="{{ item.food_title }}"
-                                         style="width:100%; height:180px; object-fit:cover; background:#f0f0f0;">
+                                         style="width:100%;height:180px;object-fit:cover;background:#f0f0f0;">
                                     {% endif %}
                                 </a>
-
                                 <div class="card-body" style="padding:14px;">
-
-                                    <!-- Food title & price -->
                                     <div class="d-flex justify-content-between align-items-start mb-1">
-                                        <h6 style="margin:0; font-weight:600;">{{ item.food_title }}</h6>
-                                        <span style="color:#27ae60; font-weight:700; white-space:nowrap; margin-left:8px;">
+                                        <h6 style="margin:0;font-weight:600;">{{ item.food_title }}</h6>
+                                        <span style="color:#27ae60;font-weight:700;white-space:nowrap;margin-left:8px;">
                                             ₹{{ item.price }}
                                         </span>
                                     </div>
-
-                                    <!-- Category -->
                                     <small style="color:#999;">{{ item.category.category_name }}</small>
-
-                                    <!-- Description -->
                                     {% if item.description %}
-                                    <p style="font-size:13px; color:#666; margin:6px 0 10px; line-height:1.4;">
+                                    <p style="font-size:13px;color:#666;margin:6px 0 10px;line-height:1.4;">
                                         {{ item.description|truncatechars:80 }}
                                     </p>
                                     {% endif %}
-
-                                    <!-- Served by -->
-                                    <div style="border-top:1px solid #f0f0f0; padding-top:8px; margin-top:auto;">
+                                    <div style="border-top:1px solid #f0f0f0;padding-top:8px;">
                                         <a href="{% url 'vendor_detail' item.vendor.vendor_slug %}"
-                                           style="color:#c0392b; font-size:13px; font-weight:600; text-decoration:none;">
-                                            <i class="icon-location"></i>
-                                            {{ item.vendor.vendor_name }}
+                                           style="color:#c0392b;font-size:13px;font-weight:600;text-decoration:none;">
+                                            <i class="icon-location"></i> {{ item.vendor.vendor_name }}
                                         </a>
                                         {% if item.vendor.user_profile.city %}
-                                        <span style="color:#aaa; font-size:12px;"> &mdash; {{ item.vendor.user_profile.city }}</span>
+                                        <span style="color:#aaa;font-size:12px;"> &mdash; {{ item.vendor.user_profile.city }}</span>
                                         {% endif %}
                                     </div>
-
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <div class="text-center p-4" style="background:#f9f9f9; border-radius:8px;">
-                        <h5>No food items found for "{{ keyword }}"</h5>
+                    <div class="text-center p-4" style="background:#f9f9f9;border-radius:8px;">
+                        <h5>No Food Items Found For "{{ keyword }}"</h5>
                         <p class="text-muted">Try searching with a different dish name.</p>
                     </div>
                     {% endif %}
@@ -164,7 +194,7 @@
             <div class="row">
                 <div class="col-lg-12">
                     <div class="text-center p-5">
-                        <h3>No results found</h3>
+                        <h3>No Results Found</h3>
                         <p>Try searching with a different restaurant name, dish name, or location.</p>
                         <a href="{% url 'home' %}" class="btn btn-danger mt-3">Back to Home</a>
                     </div>

@@ -17,42 +17,59 @@
 							
 							<div class="main-location ml-5">
 								<ul>
-									<li class="location-has-children choose-location">
-										<form action="#">
-											<input type="text" value="" name="location" placeholder="Enter your delivery location" autocomplete="off">
-											<span id="foodbakery_radius_location_open" class="foodbakery-radius-location"><i class="icon-target5"></i></span>
-										</form>
-										
+									<li class="location-has-children choose-location" style="position:relative;">
+										<div style="position:relative; display:flex; align-items:center;">
+											<input type="text" id="nav-location-input"
+												placeholder="Enter your delivery location"
+												autocomplete="off"
+												style="padding-right:36px;">
+											<span id="nav-detect-btn"
+												title="Use my location"
+												style="position:absolute; right:8px; cursor:pointer; font-size:18px; color:#c0392b;">
+												<i class="icon-target5"></i>
+											</span>
+										</div>
+										<!-- suggestion dropdown -->
+										<ul id="nav-suggestions" style="
+											display:none;
+											position:absolute;
+											top:100%;
+											left:0;
+											min-width:320px;
+											background:#fff;
+											border:1px solid #ddd;
+											border-radius:0 0 6px 6px;
+											list-style:none;
+											margin:0;
+											padding:0;
+											z-index:99999;
+											box-shadow:0 4px 12px rgba(0,0,0,0.1);
+											max-height:250px;
+											overflow-y:auto;
+										"></ul>
 									</li>
 								</ul>
-								</div>
+							</div>
 						</div>
 						<div class="col-lg-4 col-md-4 col-sm-12 col-xs-12">
 							<div class="login-option">
 								{% if user.is_authenticated %}
 								<a href="{% url 'cart' %}">
 									<i class="fa fa-shopping-cart text-danger" style="font-size:20px;"></i>
-									<span class="badge badge-warning" id = "cart_counter" style="border-radius:50px; position: relative; bottom:10px; left:-5px;">{{cart_count}}</span>
+									<span class="badge badge-warning" id="cart_counter" style="border-radius:50px; position: relative; bottom:10px; left:-5px;">{{cart_count}}</span>
 								</a>
 								{% endif %}
-								<a href="{% url 'marketplace' %}" class = "btn btn-outline-danger text-uppercase font-weight-bold">Marketplace</a>
+								<a href="{% url 'marketplace' %}" class="btn btn-outline-danger text-uppercase font-weight-bold">Marketplace</a>
 								{% if user.is_authenticated %}
-								<a class="cs-color cs-popup-joinus-btn login-popup"   href="{% url 'myAccount' %}">My Account</a>
-								<a class="cs-color cs-popup-joinus-btn login-popup text-danger"   href="{% url 'logout' %}">Logout</a>
+								<a class="cs-color cs-popup-joinus-btn login-popup" href="{% url 'myAccount' %}">My Account</a>
+								<a class="cs-color cs-popup-joinus-btn login-popup text-danger" href="{% url 'logout' %}">Logout</a>
 								{% else %}
-
-								
-								<a class="cs-color cs-popup-joinus-btn login-popup"   href="{% url 'login' %}">Login/</a>
-
-									<span> <a href="{% url 'registerUser' %}" class="cs-color cs-popup-joinus-btn login-popup ml-0">Register</a></span>
-
-									<a class="get-start-btn" href="{% url 'registerVendor' %}">
-									Register
-									Restaurant
-								 	</a>
-
-									 {% endif %}
-									 
+								<a class="cs-color cs-popup-joinus-btn login-popup" href="{% url 'login' %}">Login/</a>
+								<span><a href="{% url 'registerUser' %}" class="cs-color cs-popup-joinus-btn login-popup ml-0">Register</a></span>
+								<a class="get-start-btn" href="{% url 'registerVendor' %}">
+									Register Restaurant
+								</a>
+								{% endif %}
 							</div>
 						</div>
 					</div>
