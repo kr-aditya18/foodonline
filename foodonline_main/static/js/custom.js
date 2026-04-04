@@ -109,9 +109,23 @@ $(document).ready(function () {
     // Called after every cart action that returns cart_amount
     function updateAmounts(cart_amount) {
         if (!cart_amount) return;
+
         $('#subtotal').text(cart_amount.subtotal);
-        $('#tax').text(cart_amount.tax);
         $('#grand_total').text(cart_amount.grand_total);
+
+        // Update each dynamic tax row by tax type name (e.g. #tax-GST, #tax-VAT)
+        if (cart_amount.tax_dict) {
+            $.each(cart_amount.tax_dict, function (taxType, breakdown) {
+                $.each(breakdown, function (percentage, amount) {
+                    $('#tax-' + taxType).text(amount);
+                });
+            });
+        }
+
+        // Zero out all tax rows when cart is empty
+        if (cart_amount.subtotal == 0) {
+            $('[id^="tax-"]').text('0');
+        }
     }
 
     // ─── CHECK EMPTY CART ───────────────────────────────────────────────────────
@@ -121,7 +135,8 @@ $(document).ready(function () {
             $('#menu-item-list-6272 ul').hide();
             $('#empty-cart').show();
             // Zero out amounts when cart is fully empty
-            updateAmounts({ subtotal: 0, tax: 0, grand_total: 0 });
+            updateAmounts({ subtotal: 0, tax: 0, grand_total: 0, tax_dict: {} });
+            $('[id^="tax-"]').text('0');
         }
     }
 

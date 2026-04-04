@@ -1,5 +1,5 @@
 # context processors is used when we want global context for html pages for ex - if navbar is present in all pages and somehow we have cart which should be there in all pages then context_processors is needed
-from .models import Cart
+from .models import Cart,Tax
 from menu.models import FoodItem
 
 def get_cart_counter(request):
@@ -22,14 +22,26 @@ def get_cart_amounts(request):
     subtotal = 0
     tax = 0
     grand_total = 0
-    
+    tax_dict = {}
     if request.user.is_authenticated:
         cart_items = Cart.objects.filter(user = request.user)
         
         for item in cart_items:
             fooditem = FoodItem.objects.get(pk = item.fooditems.id)
             subtotal += (fooditem.price * item.quantity)
-            
+        
+        get_tax = Tax.objects.filter(is_active = True)
+        for i in get_tax:
+            tax_type = i.tax_type
+            tax_percentage = i.tax_percentage
+            tax_ammount = round((tax_percentage * subtotal) / 100, 2)
+            tax_dict.update({tax_type: {str(tax_percentage) : tax_ammount}})
+        
+        tax = 0
+        for key in tax_dict.values():
+            for x in key.values():
+                tax = tax + x 
+                
         grand_total = subtotal + tax
         
-    return dict(subtotal = subtotal, tax = tax, grand_total = grand_total)
+    return dict(subtotal = subtotal, tax = tax, grand_total = grand_total,tax_dict=tax_dict)
