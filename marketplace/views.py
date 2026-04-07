@@ -1,6 +1,7 @@
 import json
 import math
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404,redirect
+from accounts.models import UserProfile
 from vendor.models import Vendor
 from menu.models import Category, FoodItem
 from django.db.models import Q, Prefetch
@@ -9,8 +10,8 @@ from .models import Cart
 from .context_processors import get_cart_counter, get_cart_amounts
 from django.contrib.auth.decorators import login_required
 from vendor.utils import is_open_now, get_vendor_hours_context
-
-
+from orders.forms import OrderForm
+from marketplace.context_processors import get_cart_amounts
 # ─── HAVERSINE DISTANCE ─────────────────────────────────────────────────────
 def _haversine_km(lat1, lon1, lat2, lon2):
     R = 6371.0
@@ -225,3 +226,34 @@ def search(request):
         'food_item_count' : len(food_items) if isinstance(food_items, list) else food_items.count(),
     }
     return render(request, 'marketplace/search.html', context)
+
+@login_required(login_url='login')
+def checkout(request):
+    cart_items = Cart.objects.filter(user=request.user).order_by('created_at')
+    if cart_items.count() <= 0:
+        return redirect('marketplace')
+    
+    user_profile = UserProfile.objects.get(user=request.user)
+    default_values = {
+        'first_name' : request.user.first_name,
+        'last_name' : request.user.last_name,
+        'phone' : request.user.phone_number,
+        'email' : request.user.email,
+        'address': user_profile.address,
+        'country' : user_profile.country,
+        'state' : user_profile.state,
+        'city' : user_profile.city,
+        'pin_code' : user_profile.pincode,
+    }
+    
+    form = OrderForm(initial=default_values)
+    cart_amounts = get_cart_amounts(request)  
+    
+    context = {
+        'form': form,
+        'cart_items': cart_items,
+        'subtotal': cart_amounts['subtotal'],
+        'tax_dict': cart_amounts['tax_dict'],
+        'grand_total': cart_amounts['grand_total'],
+    }
+    return render(request, 'marketplace/checkout.html', context)
