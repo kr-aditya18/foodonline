@@ -13,6 +13,15 @@ RUN apt-get update && apt-get install -y \
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
 ENV C_INCLUDE_PATH=/usr/include/gdal
 
+# Dummy SECRET_KEY only for build time (collectstatic)
+ENV SECRET_KEY=dummy-secret-key-for-build-only
+ENV DEBUG=False
+ENV DB_NAME=dummy
+ENV DB_USER=dummy
+ENV DB_PASSWORD=dummy
+ENV DB_HOST=localhost
+ENV DB_PORT=5432
+
 WORKDIR /app
 
 COPY requirements.txt .
