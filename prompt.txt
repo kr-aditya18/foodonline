@@ -1,0 +1,177 @@
+deploying my django project on render.
+
+
+
+created these file 
+
+render.yaml 
+
+
+
+```yaml
+
+services:
+
+  - type: web
+
+    name: foodonline
+
+    runtime: docker
+
+    plan: free
+
+    envVars:
+
+      - key: DJANGO_SETTINGS_MODULE
+
+        value: foodonline_main.settings_render
+
+      - key: SECRET_KEY
+
+        sync: false
+
+      - key: DEBUG
+
+        value: "False"
+
+      - key: DB_NAME
+
+        value: neondb
+
+      - key: DB_USER
+
+        value: neondb_owner
+
+      - key: DB_PASSWORD
+
+        sync: false
+
+      - key: DB_HOST
+
+        value: ep-rough-bird-a4k6yt2s.us-east-1.aws.neon.tech
+
+      - key: DB_PORT
+
+        value: "5432"
+
+      - key: EMAIL_HOST
+
+        value: smtp.gmail.com
+
+      - key: EMAIL_PORT
+
+        value: "587"
+
+      - key: EMAIL_HOST_USER
+
+        value: django.UrbanEats@gmail.com
+
+      - key: EMAIL_HOST_PASSWORD
+
+        sync: false
+
+      - key: EMAIL_USE_TLS
+
+        value: "True"
+
+      - key: PAYPAL_CLIENT_ID
+
+        sync: false
+
+      - key: PAYPAL_SECRET
+
+        sync: false
+
+      - key: RAZORPAY_KEY_ID
+
+        sync: false
+
+      - key: RAZORPAY_KEY_SECRET
+
+        sync: false
+
+```
+
+
+
+ settings_render.py 
+
+
+
+```python
+
+from .settings import *
+
+import os
+
+
+
+GDAL_LIBRARY_PATH = os.environ.get('GDAL_LIBRARY_PATH', '/usr/lib/x86_64-linux-gnu/libgdal.so')
+
+GEOS_LIBRARY_PATH = os.environ.get('GEOS_LIBRARY_PATH', '/usr/lib/x86_64-linux-gnu/libgeos_c.so.1')
+
+
+
+ALLOWED_HOSTS = [os.environ.get('RENDER_EXTERNAL_HOSTNAME', '*')]
+
+
+
+DEBUG = False
+
+
+
+MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
+
+DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
+
+```
+
+
+
+requirements.txt 
+
+
+
+```pip-requirements
+
+asgiref==3.11.1
+
+certifi==2026.2.25
+
+charset-normalizer==3.4.7
+
+Django==6.0.3
+
+djangorestframework==3.17.1
+
+idna==3.11
+
+pillow==12.1.1
+
+psycopg2-binary==2.9.11
+
+python-decouple==3.8
+
+razorpay==2.0.1
+
+requests==2.33.1
+
+sqlparse==0.5.5
+
+tzdata==2025.3
+
+urllib3==2.6.3
+
+gunicorn==23.0.0
+
+whitenoise==6.9.0
+
+```
+
+
+
+now give steps to deploy it and i have gdal postgis smtp etc feature which are very crucial and core so without removing it give steps

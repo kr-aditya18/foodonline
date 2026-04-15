@@ -3,6 +3,7 @@ services:
     name: foodonline
     runtime: docker
     plan: free
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: foodonline_main.settings_render
