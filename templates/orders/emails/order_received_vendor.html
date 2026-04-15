@@ -1,44 +1,133 @@
 <!DOCTYPE html>
-<html>
-<body style="font-family: Arial, sans-serif; color: #333;">
-    <h2>New Order Received! 🛎️</h2>
-    <p>Hello {{ vendor.vendor_name }}, you have a new order.</p>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>New Order Received</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f2f2f2;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f2f2;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
 
-    <h3>Order Details</h3>
-    <p><strong>Order Number:</strong> {{ order.order_number }}</p>
-    <p><strong>Transaction ID:</strong> {{ payment.transaction_id }}</p>
-    <p><strong>Customer Name:</strong> {{ order.first_name }} {{ order.last_name }}</p>
-    <p><strong>Customer Email:</strong> {{ order.email }}</p>
-    <p><strong>Customer Phone:</strong> {{ order.phone }}</p>
+          <!-- HEADER -->
+          <tr>
+            <td style="background-color:#333333;padding:30px 40px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:28px;letter-spacing:1px;">🍔 FoodOnline</h1>
+              <p style="margin:6px 0 0;color:#aaaaaa;font-size:13px;">Vendor Notification</p>
+            </td>
+          </tr>
 
-    <h3>Items Ordered from Your Restaurant</h3>
-    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-        <thead style="background: #f5f5f5;">
-            <tr>
-                <th>Item</th>
-                <th>Price</th>
-                <th>Qty</th>
-                <th>Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in ordered_food %}
-            <tr>
-                <td>{{ item.fooditem.food_title }}</td>
-                <td>&#8377; {{ item.price }}</td>
-                <td>{{ item.quantity }}</td>
-                <td>&#8377; {{ item.amount }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+          <!-- ALERT BANNER -->
+          <tr>
+            <td style="background-color:#fff3e0;padding:16px 40px;text-align:center;border-bottom:1px solid #ffe0b2;">
+              <p style="margin:0;font-size:16px;font-weight:bold;color:#e65100;">🔔 New Order Received!</p>
+              <p style="margin:4px 0 0;font-size:13px;color:#bf360c;">You have a new order waiting to be prepared.</p>
+            </td>
+          </tr>
 
-    <br>
-    <h3>Delivery Address</h3>
-    <p>{{ order.address }}, {{ order.city }}, {{ order.pin_code }}</p>
+          <!-- BODY -->
+          <tr>
+            <td style="padding:40px;">
+              <h2 style="margin-top:0;color:#222222;font-size:20px;">Hi {{ vendor.vendor_name }}, 👨‍🍳</h2>
+              <p style="font-size:15px;line-height:1.8;color:#555555;">
+                Great news! A customer has placed a new order at your restaurant. Please review the details and begin preparation.
+              </p>
 
-    <br>
-    <p>Please prepare the order promptly. Thank you!</p>
-    <p>— The FoodOnline Team</p>
+              <!-- ORDER META -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;border-radius:6px;margin:16px 0 24px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size:13px;color:#888888;padding:4px 0;">Order Number</td>
+                        <td style="font-size:13px;color:#222222;font-weight:bold;text-align:right;padding:4px 0;">#{{ order.order_number }}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#888888;padding:4px 0;">Customer Name</td>
+                        <td style="font-size:13px;color:#222222;text-align:right;padding:4px 0;">{{ order.first_name }} {{ order.last_name }}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#888888;padding:4px 0;">Customer Phone</td>
+                        <td style="font-size:13px;color:#222222;text-align:right;padding:4px 0;">{{ order.phone }}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#888888;padding:4px 0;">Payment Method</td>
+                        <td style="font-size:13px;color:#222222;text-align:right;padding:4px 0;">{{ payment.payment_method }}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#888888;padding:4px 0;">Payment Status</td>
+                        <td style="text-align:right;padding:4px 0;">
+                          <span style="background-color:#e8f5e9;color:#2e7d32;font-size:12px;padding:3px 10px;border-radius:20px;font-weight:bold;">{{ payment.status }}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- ORDER ITEMS (vendor's items only) -->
+              <h3 style="font-size:16px;color:#333333;margin:0 0 12px;">🛒 Items to Prepare</h3>
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                <tr style="background-color:#333333;">
+                  <td style="padding:10px 14px;font-size:13px;color:#ffffff;font-weight:bold;">Item</td>
+                  <td style="padding:10px 14px;font-size:13px;color:#ffffff;font-weight:bold;text-align:center;">Qty</td>
+                  <td style="padding:10px 14px;font-size:13px;color:#ffffff;font-weight:bold;text-align:right;">Price</td>
+                  <td style="padding:10px 14px;font-size:13px;color:#ffffff;font-weight:bold;text-align:right;">Amount</td>
+                </tr>
+                {% for item in ordered_food %}
+                <tr style="border-bottom:1px solid #eeeeee;">
+                  <td style="padding:10px 14px;font-size:14px;color:#333333;">{{ item.fooditem.food_title }}</td>
+                  <td style="padding:10px 14px;font-size:14px;color:#333333;text-align:center;">{{ item.quantity }}</td>
+                  <td style="padding:10px 14px;font-size:14px;color:#333333;text-align:right;">${{ item.price }}</td>
+                  <td style="padding:10px 14px;font-size:14px;color:#333333;text-align:right;">${{ item.amount }}</td>
+                </tr>
+                {% endfor %}
+                <!-- SUBTOTAL ROW -->
+                <tr style="border-top:2px solid #333333;">
+                  <td colspan="3" style="padding:10px 14px;font-size:15px;font-weight:bold;color:#222222;">Your Subtotal</td>
+                  <td style="padding:10px 14px;font-size:15px;font-weight:bold;color:#ff6600;text-align:right;">
+                    ${% with total=0 %}{% for item in ordered_food %}{{ item.amount|add:total }}{% endfor %}{% endwith %}
+                    {{ ordered_food|length }}
+                  </td>
+                </tr>
+              </table>
+
+              <!-- DELIVERY ADDRESS -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;">
+                <tr>
+                  <td style="background-color:#fff3e0;border-left:4px solid #ff6600;border-radius:4px;padding:16px 20px;">
+                    <p style="margin:0 0 8px;font-size:14px;font-weight:bold;color:#333333;">📍 Delivery Address</p>
+                    <p style="margin:0;font-size:14px;color:#555555;line-height:1.7;">
+                      {{ order.first_name }} {{ order.last_name }}<br/>
+                      {{ order.address }}<br/>
+                      {{ order.city }}, {{ order.pin_code }}<br/>
+                      {{ order.country }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size:13px;color:#aaaaaa;margin-top:28px;">
+                Please log in to your vendor dashboard to manage this order. For support, contact the FoodOnline team.
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="background-color:#f9f9f9;padding:20px 40px;text-align:center;border-top:1px solid #eeeeee;">
+              <p style="font-size:12px;color:#aaaaaa;margin:0;">
+                &copy; {% now "Y" %} FoodOnline. All rights reserved.<br/>
+                You are receiving this email because you are a registered vendor on FoodOnline.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

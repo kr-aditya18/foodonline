@@ -56,15 +56,17 @@ def send_verification_email(request, user, mail_subject, email_template):
     mail.send()
     
     
-def send_notification(mail_subject,mail_template,context):
+def send_notification(mail_subject, mail_template, context):
     from_email = settings.DEFAULT_FROM_EMAIL
-    message = render_to_string(mail_template,context)
-    to_email = context['user'].email
+    message = render_to_string(mail_template, context)
+    to_email = context['to_email']  # ← bug fix: you use 'to_email' key in context
+                                    # but here you had context['user'].email
+                                    # which would crash for vendor emails (no 'user' key)
     mail = EmailMessage(
         mail_subject,
         message,
         from_email,
         to=[to_email]
     )
+    mail.content_subtype = 'html'   # ← this was missing, emails showed raw HTML
     mail.send()
-    

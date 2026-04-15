@@ -66,6 +66,18 @@ $(document).ready(function () {
         });
     }
 
+    function handleRestaurantClosed() {
+        showModal({
+            bannerBg:     'linear-gradient(135deg, #1e293b, #475569)',
+            emoji:        '🔒',
+            title:        'Restaurant is Closed',
+            sub:          'We\'re not taking orders right now',
+            desc:         'This restaurant is currently closed. Please check back during opening hours.',
+            primaryText:  'Got it',
+            primaryColor: '#475569',
+        });
+    }
+
     function handleError(msg) {
         showModal({
             bannerBg:     'linear-gradient(135deg, #ef4444, #f87171)',
@@ -98,6 +110,7 @@ $(document).ready(function () {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             success: function (response) {
                 if (response.status === 'login_required') { handleLoginRequired(); return; }
+                if (response.status === 'restaurant_closed') { handleRestaurantClosed(); return; }
                 if (response.status === 'failed') { handleError(response.message); return; }
                 onSuccess(response);
             },
@@ -106,14 +119,12 @@ $(document).ready(function () {
     }
 
     // ─── UPDATE AMOUNTS ─────────────────────────────────────────────────────────
-    // Called after every cart action that returns cart_amount
     function updateAmounts(cart_amount) {
         if (!cart_amount) return;
 
         $('#subtotal').text(cart_amount.subtotal);
         $('#grand_total').text(cart_amount.grand_total);
 
-        // Update each dynamic tax row by tax type name (e.g. #tax-GST, #tax-VAT)
         if (cart_amount.tax_dict) {
             $.each(cart_amount.tax_dict, function (taxType, breakdown) {
                 $.each(breakdown, function (percentage, amount) {
@@ -122,7 +133,6 @@ $(document).ready(function () {
             });
         }
 
-        // Zero out all tax rows when cart is empty
         if (cart_amount.subtotal == 0) {
             $('[id^="tax-"]').text('0');
         }
@@ -134,7 +144,6 @@ $(document).ready(function () {
         if (remainingItems === 0) {
             $('#menu-item-list-6272 ul').hide();
             $('#empty-cart').show();
-            // Zero out amounts when cart is fully empty
             updateAmounts({ subtotal: 0, tax: 0, grand_total: 0, tax_dict: {} });
             $('[id^="tax-"]').text('0');
         }
@@ -159,8 +168,6 @@ $(document).ready(function () {
         const url     = $(this).data('url');
         const food_id = $(this).data('id');
 
-        // Safely check if we're on the cart page.
-        // Cart page <li> has id="cart-item-X", marketplace <li> has no id.
         const $li        = $(this).closest('li');
         const liId       = $li.attr('id') || '';
         const isCartPage = liId.startsWith('cart-item-');
@@ -171,14 +178,12 @@ $(document).ready(function () {
             updateAmounts(response.cart_amount);
 
             if (response.qty === 0 && isCartPage) {
-                // Cart page + qty hit zero: remove the row entirely
                 $('#cart-item-' + cart_id).fadeOut(300, function () {
                     $(this).remove();
                     showToast('removed', 'Item removed!', 'Removed from your cart 🗑️');
                     checkEmptyCart();
                 });
             } else {
-                // Marketplace page, or qty still > 0: just update the counter
                 $('#qty-' + food_id).text(response.qty);
                 showToast(
                     response.qty === 0 ? 'removed'  : 'decrease',

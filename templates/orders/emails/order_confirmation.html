@@ -1,47 +1,137 @@
 <!DOCTYPE html>
-<html>
-<body style="font-family: Arial, sans-serif; color: #333;">
-    <h2>Thank you for your order, {{ user.first_name }}! 🎉</h2>
-    <p>Your order has been placed successfully.</p>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Order Confirmed</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f2f2f2;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f2f2;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
 
-    <h3>Order Details</h3>
-    <p><strong>Order Number:</strong> {{ order.order_number }}</p>
-    <p><strong>Transaction ID:</strong> {{ payment.transaction_id }}</p>
-    <p><strong>Payment Method:</strong> {{ payment.payment_method }}</p>
-    <p><strong>Order Status:</strong> {{ order.status }}</p>
+          <!-- HEADER -->
+          <tr>
+            <td style="background-color:#ff6600;padding:30px 40px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:28px;letter-spacing:1px;">🍔 FoodOnline</h1>
+              <p style="margin:6px 0 0;color:#ffe0cc;font-size:13px;">Your favourite food, delivered fast</p>
+            </td>
+          </tr>
 
-    <h3>Items Ordered</h3>
-    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-        <thead style="background: #f5f5f5;">
-            <tr>
-                <th>Item</th>
-                <th>Price</th>
-                <th>Qty</th>
-                <th>Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in ordered_food %}
-            <tr>
-                <td>{{ item.fooditem.food_title }}</td>
-                <td>&#8377; {{ item.price }}</td>
-                <td>{{ item.quantity }}</td>
-                <td>&#8377; {{ item.amount }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+          <!-- STATUS BANNER -->
+          <tr>
+            <td style="background-color:#e8f5e9;padding:16px 40px;text-align:center;border-bottom:1px solid #c8e6c9;">
+              <p style="margin:0;font-size:16px;font-weight:bold;color:#2e7d32;">✅ Order Confirmed!</p>
+              <p style="margin:4px 0 0;font-size:13px;color:#388e3c;">We've received your order and it's being prepared.</p>
+            </td>
+          </tr>
 
-    <br>
-    <p><strong>Total Tax:</strong> &#8377; {{ order.total_tax }}</p>
-    <p><strong>Grand Total:</strong> &#8377; {{ order.total }}</p>
+          <!-- BODY -->
+          <tr>
+            <td style="padding:40px;">
+              <h2 style="margin-top:0;color:#222222;font-size:20px;">Hi {{ user.first_name }}, thank you for your order! 🎉</h2>
+              <p style="font-size:15px;line-height:1.8;color:#555555;">
+                Your payment was successful and your order is now being prepared. Here's a summary:
+              </p>
 
-    <br>
-    <h3>Delivery Address</h3>
-    <p>{{ order.address }}, {{ order.city }}, {{ order.pin_code }}</p>
+              <!-- ORDER META -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;border-radius:6px;margin:16px 0 24px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size:13px;color:#888888;padding:4px 0;">Order Number</td>
+                        <td style="font-size:13px;color:#222222;font-weight:bold;text-align:right;padding:4px 0;">#{{ order.order_number }}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#888888;padding:4px 0;">Payment Method</td>
+                        <td style="font-size:13px;color:#222222;text-align:right;padding:4px 0;">{{ payment.payment_method }}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#888888;padding:4px 0;">Transaction ID</td>
+                        <td style="font-size:13px;color:#222222;text-align:right;padding:4px 0;">{{ payment.transaction_id }}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#888888;padding:4px 0;">Order Status</td>
+                        <td style="text-align:right;padding:4px 0;">
+                          <span style="background-color:#e8f5e9;color:#2e7d32;font-size:12px;padding:3px 10px;border-radius:20px;font-weight:bold;">{{ order.status }}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
 
-    <br>
-    <p>We'll notify you when your order is on its way!</p>
-    <p>— The FoodOnline Team</p>
+              <!-- ORDER ITEMS -->
+              <h3 style="font-size:16px;color:#333333;margin:0 0 12px;">🛒 Order Items</h3>
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                <tr style="background-color:#ff6600;">
+                  <td style="padding:10px 14px;font-size:13px;color:#ffffff;font-weight:bold;">Item</td>
+                  <td style="padding:10px 14px;font-size:13px;color:#ffffff;font-weight:bold;text-align:center;">Qty</td>
+                  <td style="padding:10px 14px;font-size:13px;color:#ffffff;font-weight:bold;text-align:right;">Price</td>
+                  <td style="padding:10px 14px;font-size:13px;color:#ffffff;font-weight:bold;text-align:right;">Amount</td>
+                </tr>
+                {% for item in ordered_food %}
+                <tr style="border-bottom:1px solid #eeeeee;">
+                  <td style="padding:10px 14px;font-size:14px;color:#333333;">{{ item.fooditem.food_title }}</td>
+                  <td style="padding:10px 14px;font-size:14px;color:#333333;text-align:center;">{{ item.quantity }}</td>
+                  <td style="padding:10px 14px;font-size:14px;color:#333333;text-align:right;">${{ item.price }}</td>
+                  <td style="padding:10px 14px;font-size:14px;color:#333333;text-align:right;">${{ item.amount }}</td>
+                </tr>
+                {% endfor %}
+              </table>
+
+              <!-- TOTALS -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
+                <tr>
+                  <td style="font-size:13px;color:#888888;padding:5px 14px;">Subtotal</td>
+                  <td style="font-size:13px;color:#333333;text-align:right;padding:5px 14px;">${{ order.total|floatformat:2 }}</td>
+                </tr>
+                <tr>
+                  <td style="font-size:13px;color:#888888;padding:5px 14px;">Tax</td>
+                  <td style="font-size:13px;color:#333333;text-align:right;padding:5px 14px;">${{ order.total_tax|floatformat:2 }}</td>
+                </tr>
+                <tr style="border-top:2px solid #ff6600;">
+                  <td style="font-size:16px;font-weight:bold;color:#222222;padding:10px 14px;">Grand Total</td>
+                  <td style="font-size:16px;font-weight:bold;color:#ff6600;text-align:right;padding:10px 14px;">${{ order.total|floatformat:2 }}</td>
+                </tr>
+              </table>
+
+              <!-- DELIVERY ADDRESS -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;">
+                <tr>
+                  <td style="background-color:#f9f9f9;border-radius:6px;padding:16px 20px;">
+                    <p style="margin:0 0 8px;font-size:14px;font-weight:bold;color:#333333;">📍 Delivery Address</p>
+                    <p style="margin:0;font-size:14px;color:#555555;line-height:1.7;">
+                      {{ order.first_name }} {{ order.last_name }}<br/>
+                      {{ order.address }}<br/>
+                      {{ order.city }}, {{ order.pin_code }}<br/>
+                      {{ order.country }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size:13px;color:#aaaaaa;margin-top:28px;">
+                If you have any questions about your order, please contact our support team. Keep your order number <strong>#{{ order.order_number }}</strong> handy.
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="background-color:#f9f9f9;padding:20px 40px;text-align:center;border-top:1px solid #eeeeee;">
+              <p style="font-size:12px;color:#aaaaaa;margin:0;">
+                &copy; {% now "Y" %} FoodOnline. All rights reserved.<br/>
+                You are receiving this email because you placed an order on our platform.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

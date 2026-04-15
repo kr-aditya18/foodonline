@@ -101,20 +101,20 @@ def registerVendor(request):
     }
     return render(request,'accounts/registerVendor.html',context)
 
-def activate(request,uidb64,token):
+def activate(request, uidb64, token):
     try:
         uid = urlsafe_base64_decode(uidb64).decode()
         user = User._default_manager.get(pk=uid)
-    except(TypeError,ValueError,OverflowError,User.DoesNotExist):
+    except(TypeError, ValueError, OverflowError, User.DoesNotExist):
         user = None
-    
-    if user is not None and default_token_generator.check_token(user,token):
+
+    if user is not None and default_token_generator.check_token(user, token):
         user.is_active = True
         user.save()
-        messages.success(request,"Congratulation! Your account is activated.")
+        messages.success(request, "Congratulations! Your account is activated.")
         return redirect('myAccount')
     else:
-        messages.error(request,'Invalid activation link')
+        messages.error(request, 'Invalid activation link')
         return redirect('myAccount')
 
 def login(request):

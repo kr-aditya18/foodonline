@@ -72,6 +72,15 @@ def add_to_cart(request, food_id):
         return JsonResponse({'status': 'failed', 'message': 'Invalid request'})
 
     fooditem = get_object_or_404(FoodItem, id=food_id)
+
+    # ── Restaurant closed check ──────────────────────────────────────────────
+    if not is_open_now(fooditem.vendor):
+        return JsonResponse({
+            'status': 'restaurant_closed',
+            'message': 'This restaurant is currently closed.',
+        })
+    # ────────────────────────────────────────────────────────────────────────
+
     cart_item, created = Cart.objects.get_or_create(
         user=request.user, fooditems=fooditem, defaults={'quantity': 1}
     )

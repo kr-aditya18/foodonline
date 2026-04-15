@@ -52,7 +52,7 @@
 <div class="main-section">
 
   <!-- ── Main Search ─────────────────────────────────────────────────────── -->
-  <div class="page-section nopadding cs-nomargin"
+  <div class="page-section nopadding cs-nomargin main-search-bar"
        style="padding-top:200px;padding-bottom:150px;margin-bottom:0;margin-top:0;
               background:url({% static 'extra-images/bg-image1.jpg' %}) no-repeat center / cover;">
     <div class="container">
@@ -63,7 +63,7 @@
               We are in the business of food<br>our restaurants do
             </h1>
             <p style="font-size:18px;letter-spacing:1px;color:#505050;text-align:center;">
-              Ridiculus sociosqu cursus neque cursus curae ante scelerisque vehicula.
+              Discover local favourites, browse menus, and order in just a few clicks.
             </p>
           </div>
         </div>
@@ -161,11 +161,11 @@
                 <figure>
                   <a href="{% url 'vendor_detail' vendor.vendor_slug %}">
                     {% if vendor.user_profile.profile_picture %}
-                      <img src="{{ vendor.user_profile.profile_picture.url }}"
+                      <img src="{{ vendor.user_profile.profile_picture.url }}" height="125"
                            class="attachment-full size-full wp-post-image"
                            alt="{{ vendor.vendor_name }}">
                     {% else %}
-                      <img src="{% static 'images/default-profile.png' %}"
+                      <img src="{% static 'images/default-profile.png' %}" height="125"
                            class="attachment-full size-full wp-post-image"
                            alt="{{ vendor.vendor_name }}">
                     {% endif %}

@@ -1,10 +1,96 @@
-{% autoescape off %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Restaurant Approved</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f2f2f2;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f2f2;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
 
-Hi {{user.first_name}},
-{% if is_approved %}
-Congratulations! Your restaurant has been approved by our admin team. -- UrbanEats.
+          <!-- HEADER -->
+          <tr>
+            <td style="background-color:#ff6600;padding:30px 40px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:28px;letter-spacing:1px;">🍔 FoodOnline</h1>
+              <p style="margin:6px 0 0;color:#ffe0cc;font-size:13px;">Your favourite food, delivered fast</p>
+            </td>
+          </tr>
 
-{% else %}
-We're sorry! You are not eligible for publishing your food menu on our marketplace. For more details, please contact support@UrbanEats.com. -- UrbanEats
-{% endif %}
-{% endautoescape %}
+          <!-- SUCCESS BANNER -->
+          <tr>
+            <td style="background-color:#e8f5e9;padding:20px 40px;text-align:center;border-bottom:1px solid #c8e6c9;">
+              <p style="margin:0;font-size:22px;">🎉</p>
+              <p style="margin:6px 0 0;font-size:17px;font-weight:bold;color:#2e7d32;">Your Restaurant Has Been Approved!</p>
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="padding:40px;">
+              <h2 style="margin-top:0;color:#222222;font-size:20px;">Congratulations, {{ user.first_name }}! 🚀</h2>
+              <p style="font-size:15px;line-height:1.8;color:#555555;">
+                We're thrilled to let you know that your restaurant <strong>{{ user.vendor.vendor_name }}</strong> has been reviewed and <strong style="color:#2e7d32;">approved</strong> by the FoodOnline team.
+              </p>
+              <p style="font-size:15px;line-height:1.8;color:#555555;">
+                You can now log in to your vendor dashboard to:
+              </p>
+
+              <!-- CHECKLIST -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 24px;">
+                <tr>
+                  <td style="padding:8px 14px;font-size:14px;color:#333333;">✅ &nbsp; Add and manage your menu items</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 14px;font-size:14px;color:#333333;">✅ &nbsp; Set your restaurant opening hours</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 14px;font-size:14px;color:#333333;">✅ &nbsp; Receive and manage customer orders</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 14px;font-size:14px;color:#333333;">✅ &nbsp; Track your revenue and order history</td>
+                </tr>
+              </table>
+
+              <!-- CTA BUTTON -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding:16px 0 28px;">
+                    <a href="{{ protocol }}://{{ domain }}{% url 'login' %}"
+                       style="background-color:#ff6600;color:#ffffff;text-decoration:none;padding:15px 40px;border-radius:6px;font-size:16px;font-weight:bold;display:inline-block;">
+                      🚀 Go to My Dashboard
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- DIVIDER -->
+              <hr style="border:none;border-top:1px solid #eeeeee;margin:10px 0 24px;"/>
+
+              <p style="font-size:14px;line-height:1.8;color:#555555;">
+                If you have any questions or need help getting started, our support team is always here to help.
+              </p>
+              <p style="font-size:14px;color:#555555;">
+                Welcome to the FoodOnline family! 🍕🎊
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="background-color:#f9f9f9;padding:20px 40px;text-align:center;border-top:1px solid #eeeeee;">
+              <p style="font-size:12px;color:#aaaaaa;margin:0;">
+                &copy; {% now "Y" %} FoodOnline. All rights reserved.<br/>
+                You are receiving this email because you registered as a vendor on FoodOnline.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
