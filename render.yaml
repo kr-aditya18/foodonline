@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: foodonline
+    runtime: docker
+    plan: free
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: foodonline_main.settings_render
+      - key: SECRET_KEY
+        sync: false
+      - key: DEBUG
+        value: "False"
+      - key: DB_NAME
+        value: neondb
+      - key: DB_USER
+        value: neondb_owner
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_HOST
+        value: ep-rough-bird-a4k6yt2s.us-east-1.aws.neon.tech
+      - key: DB_PORT
+        value: "5432"
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_HOST_USER
+        value: django.UrbanEats@gmail.com
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_SECRET
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
