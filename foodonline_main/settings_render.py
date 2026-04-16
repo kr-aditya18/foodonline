@@ -11,10 +11,12 @@ SECRET_KEY = os.environ['SECRET_KEY']
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    '.onrender.com',       # Covers your Render subdomain automatically
+    'foodonline-qezz.onrender.com',   # add exact domain explicitly
+    '.onrender.com',
     'localhost',
     '127.0.0.1',
 ]
+
 # ── GDAL / GEOS / PROJ — Linux paths ─────────────────────────────────────────
 GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'      # symlink created in Dockerfile
 GEOS_LIBRARY_PATH = '/usr/lib/libgeos_c.so'    # symlink created in Dockerfile
@@ -63,7 +65,7 @@ RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
 
 # ── Security Headers (production best practice) ───────────────────────────────
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
