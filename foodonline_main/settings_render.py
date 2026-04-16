@@ -63,6 +63,11 @@ PAYPAL_MODE = 'sandbox'
 RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
 RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://foodonline-qezz.onrender.com",
+    "https://*.onrender.com",
+]
+
 # ── Security Headers (production best practice) ───────────────────────────────
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = False
