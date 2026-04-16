@@ -4,9 +4,11 @@ from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-GDAL_LIBRARY_PATH = str(BASE_DIR / 'env' / 'Lib' / 'site-packages' / 'osgeo' / 'gdal.dll')
-GEOS_LIBRARY_PATH = str(BASE_DIR / 'env' / 'Lib' / 'site-packages' / 'osgeo' / 'geos_c.dll')
-PROJ_LIBRARY_PATH = str(BASE_DIR / 'env' / 'Lib' / 'site-packages' / 'osgeo' / 'proj_9.dll')
+import platform
+if platform.system() == 'Windows':
+    GDAL_LIBRARY_PATH = 'env/Lib/site-packages/osgeo/gdal.dll'
+    GEOS_LIBRARY_PATH = 'env/Lib/site-packages/osgeo/geos_c.dll'
+    # PROJ_LIBRARY_PATH = 'env/Lib/site-packages/osgeo/proj.dll'
 
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', cast=bool)
