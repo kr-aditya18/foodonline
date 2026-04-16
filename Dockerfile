@@ -7,13 +7,13 @@ RUN apt-get update && apt-get install -y \
     libproj-dev \
     libpq-dev \
     gcc \
+    g++ \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
 ENV C_INCLUDE_PATH=/usr/include/gdal
 
-# Dummy values only for build time (collectstatic needs them)
 ENV SECRET_KEY=dummy-secret-key-for-build-only
 ENV DEBUG=False
 ENV DB_NAME=dummy
@@ -26,7 +26,6 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-# KEY FIX: Install GDAL Python binding matching system GDAL version
 RUN pip install --upgrade pip && \
     pip install GDAL==$(gdal-config --version) && \
     pip install -r requirements.txt
