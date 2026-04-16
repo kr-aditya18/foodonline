@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
 ENV C_INCLUDE_PATH=/usr/include/gdal
 
-# Dummy SECRET_KEY only for build time (collectstatic)
+# Dummy values only for build time (collectstatic needs them)
 ENV SECRET_KEY=dummy-secret-key-for-build-only
 ENV DEBUG=False
 ENV DB_NAME=dummy
@@ -26,7 +26,10 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# KEY FIX: Install GDAL Python binding matching system GDAL version
+RUN pip install --upgrade pip && \
+    pip install GDAL==$(gdal-config --version) && \
+    pip install -r requirements.txt
 
 COPY . .
 
@@ -34,4 +37,7 @@ RUN python manage.py collectstatic --noinput --settings=foodonline_main.settings
 
 EXPOSE 10000
 
-CMD ["gunicorn", "foodonline_main.wsgi:application", "--bind", "0.0.0.0:10000", "--workers", "2", "--timeout", "120"]
+CMD ["gunicorn", "foodonline_main.wsgi:application", \
+     "--bind", "0.0.0.0:10000", \
+     "--workers", "2", \
+     "--timeout", "120"]
