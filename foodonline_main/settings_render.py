@@ -7,7 +7,7 @@ import os
 
 # ── Security ────────────────────────────────────────────────────────────────
 SECRET_KEY = os.environ.get('SECRET_KEY')
-DEBUG = True 
+DEBUG = True
 
 ALLOWED_HOSTS = [
     'foodonline-qezz.onrender.com',
@@ -58,7 +58,7 @@ if _whitenoise not in MIDDLEWARE:
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = []
+STATICFILES_DIRS = [BASE_DIR / 'foodonline_main' / 'static']
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # ── Media (Cloudinary) ──────────────────────────────────────────────────────
