@@ -53,7 +53,14 @@ def send_verification_email(request, user, mail_subject, email_template):
     )
 
     mail.content_subtype = "html"
-    mail.send()
+    # mail.send()
+    
+    # for testing purpose
+    try:
+        mail.send(fail_silently=False)
+        print("EMAIL SENT SUCCESSFULLY")
+    except Exception as e:
+        print("EMAIL ERROR:", e)
     
     
 def send_notification(mail_subject, mail_template, context):
@@ -69,4 +76,12 @@ def send_notification(mail_subject, mail_template, context):
         to=[to_email]
     )
     mail.content_subtype = 'html'   # ← this was missing, emails showed raw HTML
-    mail.send()
+    # mail.send()
+    
+    # testing for render
+    
+    try:
+        mail.send(fail_silently=False)
+        print("NOTIFICATION SENT SUCCESSFULLY")
+    except Exception as e:
+        print("NOTIFICATION ERROR:", e)
