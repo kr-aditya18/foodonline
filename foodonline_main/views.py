@@ -3,6 +3,7 @@ from vendor.models import Vendor
 import math
 
 
+
 def _haversine_km(lat1, lon1, lat2, lon2):
     R = 6371.0
     phi1, phi2 = math.radians(lat1), math.radians(lat2)

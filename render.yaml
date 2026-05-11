@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /
+    healthCheckPath: /health/
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: foodonline_main.settings_render
@@ -13,13 +13,13 @@ services:
       - key: DEBUG
         value: "False"
       - key: DB_NAME
-        value: neondb
+        value: postgres
       - key: DB_USER
-        value: neondb_owner
+        value: postgres.hhygyqnvyviswtcfcksg
       - key: DB_PASSWORD
         sync: false
       - key: DB_HOST
-        value: ep-rough-bird-a4k6yt2s.us-east-1.aws.neon.tech
+        value: aws-1-ap-south-1.pooler.supabase.com
       - key: DB_PORT
         value: "5432"
       - key: EMAIL_HOST
@@ -40,10 +40,19 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
-      # ── ADD THESE THREE ───────────────────────────────────────────────────
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
         sync: false
       - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
+      - key: DJANGO_SUPERUSER_USERNAME
+        sync: false
+      - key: DJANGO_SUPERUSER_FIRST_NAME
+        sync: false
+      - key: DJANGO_SUPERUSER_LAST_NAME
         sync: false
