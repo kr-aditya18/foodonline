@@ -27,6 +27,15 @@ else:
     print("Superuser already exists")
 EOF
 
+echo "==> Checking email config..."
+python manage.py shell --settings=foodonline_main.settings_render << 'EOF'
+from django.conf import settings
+print("EMAIL_HOST:", settings.EMAIL_HOST)
+print("EMAIL_PORT:", settings.EMAIL_PORT)
+print("EMAIL_HOST_USER:", settings.EMAIL_HOST_USER)
+print("EMAIL_BACKEND:", settings.EMAIL_BACKEND)
+EOF
+
 echo "==> Starting Gunicorn..."
 exec gunicorn foodonline_main.wsgi:application \
     --bind 0.0.0.0:$PORT \
