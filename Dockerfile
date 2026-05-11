@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# ── System deps: GDAL, GEOS, PROJ, PostgreSQL client, compilers ───────────────
+# ── System deps ───────────────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y \
     gdal-bin \
     libgdal-dev \
@@ -14,7 +14,6 @@ RUN apt-get update && apt-get install -y \
     && ln -sf $(find /usr/lib -name "libgdal.so*" | grep -v python | head -1) /usr/lib/libgdal.so \
     && ln -sf $(find /usr/lib -name "libgeos_c.so*" | head -1) /usr/lib/libgeos_c.so
 
-# ── Tell GDAL pip build where headers live ────────────────────────────────────
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
 ENV C_INCLUDE_PATH=/usr/include/gdal
 
@@ -43,7 +42,6 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-# ── Install Python deps ───────────────────────────────────────────────────────
 RUN pip install --upgrade pip && \
     pip install setuptools wheel numpy && \
     pip install GDAL==$(gdal-config --version) --no-build-isolation && \
@@ -51,10 +49,10 @@ RUN pip install --upgrade pip && \
 
 COPY . .
 
-# ── Create staticfiles dir and collect static ─────────────────────────────────
+# ── Collect static using build settings (no Cloudinary) ──────────────────────
 RUN mkdir -p /app/staticfiles && \
     python manage.py collectstatic --noinput \
-    --settings=foodonline_main.settings_render
+        --settings=foodonline_main.settings_build
 
 RUN chmod +x start.sh
 

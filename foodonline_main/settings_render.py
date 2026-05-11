@@ -28,7 +28,7 @@ USE_X_FORWARDED_PORT = True
 GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
 GEOS_LIBRARY_PATH = '/usr/lib/libgeos_c.so'
 
-# ── Database (Supabase Session Pooler) ───────────────────────────────────────
+# ── Database (Supabase Session Pooler) ────────────────────────────────────────
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
@@ -49,63 +49,59 @@ DATABASES = {
 }
 
 # ── Cloudinary Apps (before staticfiles) ──────────────────────────────────────
-_cloudinary_apps = [
-    'cloudinary_storage',
-    'cloudinary',
-]
-
+_cloudinary_apps = ['cloudinary_storage', 'cloudinary']
 for _app in reversed(_cloudinary_apps):
     if _app not in INSTALLED_APPS:
-        _staticfiles_index = INSTALLED_APPS.index('django.contrib.staticfiles')
-        INSTALLED_APPS.insert(_staticfiles_index, _app)
+        _idx = INSTALLED_APPS.index('django.contrib.staticfiles')
+        INSTALLED_APPS.insert(_idx, _app)
 
 # ── WhiteNoise (static files) ─────────────────────────────────────────────────
 _whitenoise = 'whitenoise.middleware.WhiteNoiseMiddleware'
 if _whitenoise not in MIDDLEWARE:
     MIDDLEWARE.insert(1, _whitenoise)
 
+# ── Static files ──────────────────────────────────────────────────────────────
+# BASE_DIR = foodonline/ (project root)
+# Source static files  → foodonline/foodonline_main/static/
+# Collected output     → foodonline/staticfiles/   (different from source!)
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'foodonline_main', 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')   # must differ from STATICFILES_DIRS
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # ── Media (Cloudinary) ────────────────────────────────────────────────────────
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_KEY':    os.environ.get('CLOUDINARY_API_KEY'),
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
-
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # ── Email ─────────────────────────────────────────────────────────────────────
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_BACKEND     = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST        = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT        = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_HOST_USER   = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
-EMAIL_USE_TLS = True
+EMAIL_USE_TLS     = True
 DEFAULT_FROM_EMAIL = 'UrbanEats MarketPlace <django.UrbanEats@gmail.com>'
 
 # ── Payments ──────────────────────────────────────────────────────────────────
-PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID')
-PAYPAL_SECRET = os.environ.get('PAYPAL_SECRET')
-PAYPAL_MODE = 'sandbox'
-
-RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID')
+PAYPAL_CLIENT_ID  = os.environ.get('PAYPAL_CLIENT_ID')
+PAYPAL_SECRET     = os.environ.get('PAYPAL_SECRET')
+PAYPAL_MODE       = 'sandbox'
+RAZORPAY_KEY_ID     = os.environ.get('RAZORPAY_KEY_ID')
 RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET')
 
 # ── CSRF ──────────────────────────────────────────────────────────────────────
 CSRF_TRUSTED_ORIGINS = [
-    "https://foodonline-qezz.onrender.com",
-    "https://*.onrender.com",
+    'https://foodonline-qezz.onrender.com',
+    'https://*.onrender.com',
 ]
 
 # ── Security Headers ──────────────────────────────────────────────────────────
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = False
-
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-
-SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
+SECURE_PROXY_SSL_HEADER        = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT            = False
+SESSION_COOKIE_SECURE          = True
+CSRF_COOKIE_SECURE             = True
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
