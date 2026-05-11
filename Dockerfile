@@ -44,8 +44,6 @@ WORKDIR /app
 COPY requirements.txt .
 
 # ── Install Python deps ───────────────────────────────────────────────────────
-# numpy must come before GDAL — GDAL bindings need it at compile time.
-# GDAL is NOT in requirements.txt (Windows wheel was removed).
 RUN pip install --upgrade pip && \
     pip install setuptools wheel numpy && \
     pip install GDAL==$(gdal-config --version) --no-build-isolation && \
@@ -53,7 +51,9 @@ RUN pip install --upgrade pip && \
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput \
+# ── Create staticfiles dir and collect static ─────────────────────────────────
+RUN mkdir -p /app/staticfiles && \
+    python manage.py collectstatic --noinput \
     --settings=foodonline_main.settings_render
 
 RUN chmod +x start.sh

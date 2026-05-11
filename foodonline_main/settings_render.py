@@ -40,6 +40,10 @@ DATABASES = {
         'CONN_MAX_AGE': 0,
         'OPTIONS': {
             'sslmode': 'require',
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5,
         },
     }
 }
@@ -61,8 +65,8 @@ if _whitenoise not in MIDDLEWARE:
     MIDDLEWARE.insert(1, _whitenoise)
 
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'foodonline_main' / 'static']
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'foodonline_main', 'static')]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # ── Media (Cloudinary) ────────────────────────────────────────────────────────
