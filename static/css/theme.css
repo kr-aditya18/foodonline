@@ -1,0 +1,224 @@
+/* ============================================
+   THEME VARIABLES — Dark / Light Mode
+   FoodOnline Restaurant Management System
+   ============================================ */
+
+/* ---------- LIGHT THEME (default) ---------- */
+:root,
+[data-theme="light"] {
+    --bg-primary:       #ffffff;
+    --bg-secondary:     #f5f5f5;
+    --bg-card:          #ffffff;
+    --bg-navbar:        #ffffff;
+    --bg-footer:        #2d2d2d;
+    --bg-sidebar:       #f9f9f9;
+    --bg-input:         #ffffff;
+
+    --text:             #333333;
+    --text-muted:       #777777;
+    --text-heading:     #111111;
+    --text-navbar:      #333333;
+    --text-inverted:    #ffffff;
+
+    --border:           #e0e0e0;
+    --border-input:     #cccccc;
+
+    --accent:           #f28123;        /* Your site's orange accent */
+    --accent-hover:     #d9700f;
+
+    --shadow:           rgba(0, 0, 0, 0.08);
+    --shadow-card:      0 2px 12px rgba(0, 0, 0, 0.08);
+
+    --toggle-bg:        #e8e8e8;
+    --toggle-icon:      #f59e0b;        /* Sun — warm yellow */
+}
+
+/* ---------- DARK THEME ---------- */
+[data-theme="dark"] {
+    --bg-primary:       #0f0f0f;
+    --bg-secondary:     #1a1a1a;
+    --bg-card:          #1e1e1e;
+    --bg-navbar:        #111111;
+    --bg-footer:        #0a0a0a;
+    --bg-sidebar:       #161616;
+    --bg-input:         #2a2a2a;
+
+    --text:             #e0e0e0;
+    --text-muted:       #888888;
+    --text-heading:     #f0f0f0;
+    --text-navbar:      #e0e0e0;
+    --text-inverted:    #111111;
+
+    --border:           #2e2e2e;
+    --border-input:     #3a3a3a;
+
+    --accent:           #f28123;
+    --accent-hover:     #ffaa55;
+
+    --shadow:           rgba(0, 0, 0, 0.4);
+    --shadow-card:      0 2px 12px rgba(0, 0, 0, 0.4);
+
+    --toggle-bg:        #2e2e2e;
+    --toggle-icon:      #a5b4fc;        /* Moon — cool indigo */
+}
+
+/* ============================================
+   GLOBAL THEME TRANSITIONS
+   ============================================ */
+*,
+*::before,
+*::after {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* ============================================
+   APPLY VARIABLES TO SITE ELEMENTS
+   ============================================ */
+
+body {
+    background-color: var(--bg-primary) !important;
+    color: var(--text) !important;
+}
+
+/* Navbar */
+.header-holder,
+nav,
+.navbar,
+.main-nav {
+    background-color: var(--bg-navbar) !important;
+    border-bottom: 1px solid var(--border);
+}
+
+.main-nav a,
+.navbar a,
+nav a {
+    color: var(--text-navbar) !important;
+}
+
+/* Cards & Panels */
+.user-dashboard,
+.user-holder,
+.page-section,
+.dashboard-holder {
+    background-color: var(--bg-card) !important;
+    box-shadow: var(--shadow-card);
+}
+
+/* Sidebar */
+.account-nav,
+.sidebar,
+[class*="sidebar"] {
+    background-color: var(--bg-sidebar) !important;
+    border: 1px solid var(--border);
+}
+
+.account-nav li a,
+.account-nav li span {
+    color: var(--text) !important;
+}
+
+/* Inputs & Form Fields */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+select,
+textarea,
+.form-control {
+    background-color: var(--bg-input) !important;
+    color: var(--text) !important;
+    border-color: var(--border-input) !important;
+}
+
+input[readonly] {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-muted) !important;
+}
+
+/* Labels & Headings */
+label,
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-heading) !important;
+}
+
+/* jQuery UI Autocomplete dropdown */
+.ui-autocomplete {
+    background-color: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+}
+
+.ui-menu-item-wrapper {
+    color: var(--text) !important;
+}
+
+.ui-state-active,
+.ui-menu-item-wrapper.ui-state-active {
+    background-color: var(--accent) !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+/* Buttons */
+input[type="submit"],
+.btn-primary,
+button[type="submit"] {
+    background-color: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: #fff !important;
+}
+
+input[type="submit"]:hover,
+.btn-primary:hover {
+    background-color: var(--accent-hover) !important;
+}
+
+/* Alerts / Messages */
+.alert {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
+/* ============================================
+   THEME TOGGLE BUTTON STYLES
+   ============================================ */
+#theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background-color: var(--toggle-bg);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-left: 12px;
+    vertical-align: middle;
+    outline: none;
+    box-shadow: 0 2px 6px var(--shadow);
+}
+
+#theme-toggle:hover {
+    border-color: var(--accent);
+    transform: rotate(20deg) scale(1.1);
+    box-shadow: 0 0 10px var(--accent);
+}
+
+#theme-icon {
+    font-size: 16px;
+    color: var(--toggle-icon);
+    transition: color 0.3s ease;
+    /* Unicode fallback if iconmoon doesn't have sun/moon */
+}
+
+/* Sun icon using Unicode if iconmoon class unavailable */
+#theme-icon::before {
+    content: '☀️';
+    font-style: normal;
+}
+
+[data-theme="dark"] #theme-icon::before {
+    content: '🌙';
+}
