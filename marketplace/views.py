@@ -1,6 +1,6 @@
 import json
 import math
-from django.shortcuts import render, get_object_or_404,redirect
+from django.shortcuts import render, get_object_or_404, redirect
 from accounts.models import UserProfile
 from vendor.models import Vendor
 from menu.models import Category, FoodItem
@@ -12,6 +12,8 @@ from django.contrib.auth.decorators import login_required
 from vendor.utils import is_open_now, get_vendor_hours_context
 from orders.forms import OrderForm
 from marketplace.context_processors import get_cart_amounts
+
+
 # ─── HAVERSINE DISTANCE ─────────────────────────────────────────────────────
 def _haversine_km(lat1, lon1, lat2, lon2):
     R = 6371.0
@@ -20,6 +22,12 @@ def _haversine_km(lat1, lon1, lat2, lon2):
     dlam = math.radians(lon2 - lon1)
     a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+# ─── VENDOR ROLE CHECK ──────────────────────────────────────────────────────
+def _is_vendor(user):
+    """Returns True if the logged-in user is a restaurant owner (role=1)."""
+    return user.is_authenticated and user.role == 1
 
 
 # ─── MARKETPLACE LISTING ────────────────────────────────────────────────────
@@ -61,6 +69,7 @@ def vendor_detail(request, vendor_slug):
         'today_slot'          : hours_ctx['today_slot'],
         'all_hours'           : hours_ctx['all_hours'],
         'is_open'             : hours_ctx['is_open'],
+        'is_vendor'           : _is_vendor(request.user),  # used in template to hide add-to-cart
     })
 
 
@@ -68,18 +77,22 @@ def vendor_detail(request, vendor_slug):
 def add_to_cart(request, food_id):
     if not request.user.is_authenticated:
         return JsonResponse({'status': 'login_required', 'message': 'Please login to continue'})
+
+    # Block vendors from adding to cart
+    if _is_vendor(request.user):
+        return JsonResponse({'status': 'failed', 'message': 'Restaurant owners cannot place orders.'})
+
     if request.headers.get('x-requested-with') != 'XMLHttpRequest':
         return JsonResponse({'status': 'failed', 'message': 'Invalid request'})
 
     fooditem = get_object_or_404(FoodItem, id=food_id)
 
-    # ── Restaurant closed check ──────────────────────────────────────────────
+    # Restaurant closed check
     if not is_open_now(fooditem.vendor):
         return JsonResponse({
             'status': 'restaurant_closed',
             'message': 'This restaurant is currently closed.',
         })
-    # ────────────────────────────────────────────────────────────────────────
 
     cart_item, created = Cart.objects.get_or_create(
         user=request.user, fooditems=fooditem, defaults={'quantity': 1}
@@ -100,6 +113,11 @@ def add_to_cart(request, food_id):
 def decrease_cart(request, food_id):
     if not request.user.is_authenticated:
         return JsonResponse({'status': 'login_required', 'message': 'Please login to continue'})
+
+    # Block vendors
+    if _is_vendor(request.user):
+        return JsonResponse({'status': 'failed', 'message': 'Restaurant owners cannot modify cart.'})
+
     if request.headers.get('x-requested-with') != 'XMLHttpRequest':
         return JsonResponse({'status': 'failed', 'message': 'Invalid request'})
 
@@ -127,8 +145,14 @@ def decrease_cart(request, food_id):
 def delete_cart(request, cart_id):
     if not request.user.is_authenticated:
         return JsonResponse({'status': 'login_required', 'message': 'Please login to continue'})
+
+    # Block vendors
+    if _is_vendor(request.user):
+        return JsonResponse({'status': 'failed', 'message': 'Restaurant owners cannot modify cart.'})
+
     if request.headers.get('x-requested-with') != 'XMLHttpRequest':
         return JsonResponse({'status': 'failed', 'message': 'Invalid Request'})
+
     try:
         cart_item = Cart.objects.get(user=request.user, id=cart_id)
         cart_item.delete()
@@ -144,6 +168,10 @@ def delete_cart(request, cart_id):
 # ─── CART PAGE ──────────────────────────────────────────────────────────────
 @login_required(login_url='login')
 def cart(request):
+    # Vendors are not allowed to access the cart page
+    if _is_vendor(request.user):
+        return redirect('vendordashboard')
+
     cart_items = (
         Cart.objects.filter(user=request.user)
         .select_related('fooditems__category__vendor')
@@ -219,9 +247,7 @@ def search(request):
             Q(user_profile__state__icontains=location_query)
         )
 
-    # Attach is_open to each vendor in search results
     vendor_list = [{'vendor': v, 'is_open': is_open_now(v)} for v in vendors]
-
     short_address = city or (address[:40] + '...' if len(address) > 40 else address)
 
     context = {
@@ -236,33 +262,39 @@ def search(request):
     }
     return render(request, 'marketplace/search.html', context)
 
+
+# ─── CHECKOUT ───────────────────────────────────────────────────────────────
 @login_required(login_url='login')
 def checkout(request):
+    # Vendors are not allowed to checkout
+    if _is_vendor(request.user):
+        return redirect('vendordashboard')
+
     cart_items = Cart.objects.filter(user=request.user).order_by('created_at')
     if cart_items.count() <= 0:
         return redirect('marketplace')
-    
+
     user_profile = UserProfile.objects.get(user=request.user)
     default_values = {
         'first_name' : request.user.first_name,
-        'last_name' : request.user.last_name,
-        'phone' : request.user.phone_number,
-        'email' : request.user.email,
-        'address': user_profile.address,
-        'country' : user_profile.country,
-        'state' : user_profile.state,
-        'city' : user_profile.city,
-        'pin_code' : user_profile.pincode,
+        'last_name'  : request.user.last_name,
+        'phone'      : request.user.phone_number,
+        'email'      : request.user.email,
+        'address'    : user_profile.address,
+        'country'    : user_profile.country,
+        'state'      : user_profile.state,
+        'city'       : user_profile.city,
+        'pin_code'   : user_profile.pincode,
     }
-    
+
     form = OrderForm(initial=default_values)
-    cart_amounts = get_cart_amounts(request)  
-    
+    cart_amounts = get_cart_amounts(request)
+
     context = {
-        'form': form,
-        'cart_items': cart_items,
-        'subtotal': cart_amounts['subtotal'],
-        'tax_dict': cart_amounts['tax_dict'],
-        'grand_total': cart_amounts['grand_total'],
+        'form'        : form,
+        'cart_items'  : cart_items,
+        'subtotal'    : cart_amounts['subtotal'],
+        'tax_dict'    : cart_amounts['tax_dict'],
+        'grand_total' : cart_amounts['grand_total'],
     }
     return render(request, 'marketplace/checkout.html', context)

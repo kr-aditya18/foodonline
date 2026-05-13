@@ -18,6 +18,7 @@ ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
 ENV C_INCLUDE_PATH=/usr/include/gdal
 
 # ── Dummy build-time env vars ─────────────────────────────────────────────────
+# Email vars use Brevo placeholders now — Gmail removed completely.
 ENV SECRET_KEY=dummy-secret-key-for-build-only
 ENV DEBUG=False
 ENV DB_NAME=dummy
@@ -25,11 +26,9 @@ ENV DB_USER=dummy
 ENV DB_PASSWORD=dummy
 ENV DB_HOST=localhost
 ENV DB_PORT=5432
-ENV EMAIL_HOST=smtp.gmail.com
-ENV EMAIL_PORT=587
-ENV EMAIL_HOST_USER=dummy@gmail.com
-ENV EMAIL_HOST_PASSWORD=dummy
-ENV EMAIL_USE_TLS=True
+ENV BREVO_SMTP_LOGIN=dummy@example.com
+ENV BREVO_SMTP_KEY=dummy-brevo-key
+ENV DEFAULT_FROM_EMAIL=noreply@example.com
 ENV PAYPAL_CLIENT_ID=dummy
 ENV PAYPAL_SECRET=dummy
 ENV RAZORPAY_KEY_ID=dummy

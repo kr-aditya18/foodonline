@@ -23,6 +23,101 @@ $(document).ready(function () {
         toastTimer = setTimeout(() => $('#food-toast').removeClass('show'), 2400);
     }
 
+    // ── PASSWORD STRENGTH & VALIDATION ──────────────────────────────────────────
+(function () {
+    if (!$('#pwd-criteria').length) return;
+    const rules = [
+        { id: 'crit-length',  test: v => v.length >= 8 },
+        { id: 'crit-upper',   test: v => /[A-Z]/.test(v) },
+        { id: 'crit-lower',   test: v => /[a-z]/.test(v) },
+        { id: 'crit-number',  test: v => /[0-9]/.test(v) },
+        { id: 'crit-special', test: v => /[^A-Za-z0-9]/.test(v) },
+    ];
+
+    const strengthColors = ['#e0e0e0', '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1e7d48'];
+
+    function updateStrength(val) {
+        const score = rules.filter(r => r.test(val)).length;
+        const pct   = (score / rules.length) * 100;
+        const color = strengthColors[score];
+        $('#pwd-strength-fill').css({ width: pct + '%', background: color });
+    }
+
+    function allMet(val) {
+        return rules.every(r => r.test(val));
+    }
+
+    function updateSubmitBtn() {
+        const pwd     = $('#id_password').val() || '';
+        const confirm = $('#id_confirm_password').val() || '';
+        const valid   = allMet(pwd) && pwd === confirm;
+        $('#btn-next-restaurant-information').prop('disabled', !valid);
+    }
+
+    // Show/hide criteria on focus
+    $('#id_password').on('focus', function () {
+        $('#pwd-criteria').addClass('visible');
+    });
+
+    // Live criteria check
+    $('#id_password').on('input', function () {
+        const val = $(this).val();
+
+        rules.forEach(rule => {
+            const $item = $('#' + rule.id);
+            if (rule.test(val)) {
+                $item.removeClass('unmet').addClass('met');
+                $item.find('i').removeClass('ti-circle-check').addClass('ti-check');
+            } else {
+                $item.removeClass('met').addClass('unmet');
+                $item.find('i').removeClass('ti-check').addClass('ti-circle-check');
+            }
+        });
+
+        updateStrength(val);
+        updateSubmitBtn();
+
+        // also re-check confirm match if already typed
+        if ($('#id_confirm_password').val()) {
+            $('#id_confirm_password').trigger('input');
+        }
+    });
+
+    // Confirm password match feedback
+    $('#id_confirm_password').on('input', function () {
+        const pwd     = $('#id_password').val();
+        const confirm = $(this).val();
+        const $msg    = $('#confirm-match-msg');
+
+        if (confirm.length === 0) {
+            $msg.removeClass('show ok no');
+        } else if (pwd === confirm) {
+            $msg.removeClass('no').addClass('show ok');
+            $msg.find('span').text('Passwords match');
+            $msg.find('i').attr('class', 'ti ti-circle-check');
+        } else {
+            $msg.removeClass('ok').addClass('show no');
+            $msg.find('span').text('Passwords do not match');
+            $msg.find('i').attr('class', 'ti ti-x');
+        }
+
+        updateSubmitBtn();
+    });
+
+    // Toggle show/hide password
+    $(document).on('click', '.password-toggle', function () {
+        const targetId = $(this).data('target');
+        const $input   = $('#' + targetId);
+        const $icon    = $(this).find('i');
+        const isHidden = $input.attr('type') === 'password';
+
+        $input.attr('type', isHidden ? 'text' : 'password');
+        $icon.attr('class', isHidden ? 'ti ti-eye-off' : 'ti ti-eye');
+    });
+
+    
+})();
+
     // ─── MODAL ──────────────────────────────────────────────────────────────────
     function showModal(config) {
         $('#modal-banner').css('background', config.bannerBg);

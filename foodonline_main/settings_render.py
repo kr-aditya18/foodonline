@@ -1,6 +1,5 @@
-"""
-Production settings for Render deployment.
-"""
+# foodonline_main/settings_render.py
+# Production settings for Render deployment — Brevo email only, no Gmail.
 
 from .settings import *
 import os
@@ -20,15 +19,15 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
 ]
 
-# ── Proxy headers (Render behind load balancer) ───────────────────────────────
+# ── Proxy headers (Render sits behind a load balancer) ───────────────────────
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
 
-# ── GDAL / GEOS (Linux paths) ─────────────────────────────────────────────────
+# ── GDAL / GEOS (Linux paths inside Docker) ───────────────────────────────────
 GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
 GEOS_LIBRARY_PATH = '/usr/lib/libgeos_c.so'
 
-# ── Database (Supabase Session Pooler) ────────────────────────────────────────
+# ── Database (Supabase session pooler) ────────────────────────────────────────
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
@@ -48,25 +47,22 @@ DATABASES = {
     }
 }
 
-# ── Cloudinary Apps (before staticfiles) ──────────────────────────────────────
+# ── Cloudinary apps (must be before staticfiles) ──────────────────────────────
 _cloudinary_apps = ['cloudinary_storage', 'cloudinary']
 for _app in reversed(_cloudinary_apps):
     if _app not in INSTALLED_APPS:
         _idx = INSTALLED_APPS.index('django.contrib.staticfiles')
         INSTALLED_APPS.insert(_idx, _app)
 
-# ── WhiteNoise (static files) ─────────────────────────────────────────────────
+# ── WhiteNoise middleware ──────────────────────────────────────────────────────
 _whitenoise = 'whitenoise.middleware.WhiteNoiseMiddleware'
 if _whitenoise not in MIDDLEWARE:
     MIDDLEWARE.insert(1, _whitenoise)
 
 # ── Static files ──────────────────────────────────────────────────────────────
-# BASE_DIR = foodonline/ (project root)
-# Source static files  → foodonline/foodonline_main/static/
-# Collected output     → foodonline/staticfiles/   (different from source!)
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'foodonline_main', 'static')]
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')   # must differ from STATICFILES_DIRS
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # ── Media (Cloudinary) ────────────────────────────────────────────────────────
@@ -77,16 +73,66 @@ CLOUDINARY_STORAGE = {
 }
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-# ── Email ─────────────────────────────────────────────────────────────────────
-EMAIL_BACKEND     = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST        = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT        = int(os.environ.get('EMAIL_PORT', 587))
-EMAIL_HOST_USER   = os.environ.get('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
-EMAIL_USE_TLS     = True
-DEFAULT_FROM_EMAIL = 'UrbanEats MarketPlace <django.UrbanEats@gmail.com>'
+# ── Email — Brevo SMTP ONLY ───────────────────────────────────────────────────
+# Free plan: 300 emails/day, no credit card required.
+# Sign up at https://app.brevo.com → SMTP & API → generate SMTP key.
+#
+# REMOVED: smtp.gmail.com — Google blocks sends from cloud provider IPs.
+# REMOVED: hardcoded DEFAULT_FROM_EMAIL Gmail address.
+# REMOVED: old EMAIL_HOST / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD vars.
 
-# ── Payments ──────────────────────────────────────────────────────────────────
+EMAIL_BACKEND     = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST        = 'smtp-relay.brevo.com'   # Brevo's fixed host, never changes
+EMAIL_PORT        = 587
+EMAIL_USE_TLS     = True
+EMAIL_USE_SSL     = False                    # Must be False when USE_TLS = True
+
+# These come from Render environment variables (set in dashboard or render.yaml)
+EMAIL_HOST_USER     = os.environ.get('BREVO_SMTP_LOGIN')    # your Brevo account email
+EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_KEY')      # SMTP key from Brevo dashboard
+
+# Must match a verified sender in your Brevo account → Senders & IPs → Senders
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'UrbanEats <noreply@yourdomain.com>')
+
+# ── Logging — visible in Render log dashboard ─────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {name} — {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        # Shows exact SMTP errors from Django's mail module
+        'django.core.mail': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        # Shows [EMAIL OK] / [EMAIL FAILED] lines from utils.py
+        'accounts.utils': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        # General Django warnings/errors
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+    },
+}
+
+# ── Payments (unchanged) ──────────────────────────────────────────────────────
 PAYPAL_CLIENT_ID  = os.environ.get('PAYPAL_CLIENT_ID')
 PAYPAL_SECRET     = os.environ.get('PAYPAL_SECRET')
 PAYPAL_MODE       = 'sandbox'
@@ -99,9 +145,9 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.onrender.com',
 ]
 
-# ── Security Headers ──────────────────────────────────────────────────────────
-SECURE_PROXY_SSL_HEADER        = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT            = False
-SESSION_COOKIE_SECURE          = True
-CSRF_COOKIE_SECURE             = True
+# ── Security headers ──────────────────────────────────────────────────────────
+SECURE_PROXY_SSL_HEADER           = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT               = False
+SESSION_COOKIE_SECURE             = True
+CSRF_COOKIE_SECURE                = True
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'

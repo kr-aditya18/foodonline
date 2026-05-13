@@ -1,3 +1,7 @@
+# foodonline_main/settings.py
+# Local development settings only.
+# Production overrides are in settings_render.py.
+
 import os
 from pathlib import Path
 from decouple import config
@@ -8,7 +12,6 @@ import platform
 if platform.system() == 'Windows':
     GDAL_LIBRARY_PATH = 'env/Lib/site-packages/osgeo/gdal.dll'
     GEOS_LIBRARY_PATH = 'env/Lib/site-packages/osgeo/geos_c.dll'
-    # PROJ_LIBRARY_PATH = 'env/Lib/site-packages/osgeo/proj.dll'
 
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', cast=bool)
@@ -110,19 +113,17 @@ MESSAGE_TAGS = {
     messages.ERROR: 'danger',
 }
 
-EMAIL_HOST = config('EMAIL_HOST')
-EMAIL_PORT = config('EMAIL_PORT', cast=int)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
-EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = 'UrbanEats MarketPlace <django.UrbanEats@gmail.com>'
+# ── Email — local development ─────────────────────────────────────────────────
+# Console backend prints emails to terminal — no SMTP needed locally.
+# Production email (Brevo SMTP) is configured in settings_render.py only.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'UrbanEats <noreply@yourdomain.com>'
 
-#  Both PayPal credentials
+# Payments
 PAYPAL_CLIENT_ID = config('PAYPAL_CLIENT_ID')
-PAYPAL_SECRET = config('PAYPAL_SECRET')
-PAYPAL_MODE   = 'sandbox'
+PAYPAL_SECRET    = config('PAYPAL_SECRET')
+PAYPAL_MODE      = 'sandbox'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
 
-# RazorPay 
 RAZORPAY_KEY_ID     = config('RAZORPAY_KEY_ID')
 RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET')

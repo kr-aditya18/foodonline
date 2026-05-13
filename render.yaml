@@ -1,3 +1,6 @@
+# render.yaml — FoodOnline / UrbanEats
+# Email: Brevo SMTP only. Gmail completely removed.
+
 services:
   - type: web
     name: foodonline
@@ -8,10 +11,14 @@ services:
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: foodonline_main.settings_render
+
       - key: SECRET_KEY
         sync: false
+
       - key: DEBUG
         value: "False"
+
+      # ── Database (Supabase) ──────────────────────────────────────────────
       - key: DB_NAME
         value: postgres
       - key: DB_USER
@@ -22,16 +29,35 @@ services:
         value: aws-1-ap-south-1.pooler.supabase.com
       - key: DB_PORT
         value: "5432"
-      - key: EMAIL_HOST
-        value: smtp.gmail.com
-      - key: EMAIL_PORT
-        value: "587"
-      - key: EMAIL_HOST_USER
-        value: django.UrbanEats@gmail.com
-      - key: EMAIL_HOST_PASSWORD
+
+      # ── Email — Brevo SMTP ONLY ──────────────────────────────────────────
+      # Old Gmail vars REMOVED: EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER,
+      #                          EMAIL_HOST_PASSWORD, EMAIL_USE_TLS
+      #
+      # Step 1: Sign up free at https://app.brevo.com (no credit card)
+      # Step 2: Go to SMTP & API → SMTP → Generate a new SMTP key
+      # Step 3: Go to Senders & IPs → Senders → verify your sender email
+      # Step 4: Set these 3 vars in Render dashboard → Environment
+
+      - key: BREVO_SMTP_LOGIN
+        sync: false   # Your Brevo account login email
+
+      - key: BREVO_SMTP_KEY
+        sync: false   # SMTP key from Brevo dashboard (NOT your password)
+
+      - key: DEFAULT_FROM_EMAIL
+        sync: false   # Must match a verified sender in Brevo
+                      # Format: UrbanEats <noreply@yourdomain.com>
+
+      # ── Cloudinary ───────────────────────────────────────────────────────
+      - key: CLOUDINARY_CLOUD_NAME
         sync: false
-      - key: EMAIL_USE_TLS
-        value: "True"
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # ── Payments ─────────────────────────────────────────────────────────
       - key: PAYPAL_CLIENT_ID
         sync: false
       - key: PAYPAL_SECRET
@@ -40,12 +66,8 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
+
+      # ── Superuser (first deploy only) ────────────────────────────────────
       - key: DJANGO_SUPERUSER_EMAIL
         sync: false
       - key: DJANGO_SUPERUSER_PASSWORD
