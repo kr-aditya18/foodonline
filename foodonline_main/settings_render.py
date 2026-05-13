@@ -81,11 +81,11 @@ DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 # REMOVED: hardcoded DEFAULT_FROM_EMAIL Gmail address.
 # REMOVED: old EMAIL_HOST / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD vars.
 
-EMAIL_BACKEND     = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST        = 'smtp-relay.brevo.com'   # Brevo's fixed host, never changes
-EMAIL_PORT        = 587
-EMAIL_USE_TLS     = True
-EMAIL_USE_SSL     = False                    # Must be False when USE_TLS = True
+
+EMAIL_PORT    = 465
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = True
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'UrbanEats <django.urbaneats@gmail.com>')
 
 # These come from Render environment variables (set in dashboard or render.yaml)
 EMAIL_HOST_USER     = os.environ.get('BREVO_SMTP_LOGIN')    # your Brevo account email

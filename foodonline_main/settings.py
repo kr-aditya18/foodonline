@@ -117,7 +117,7 @@ MESSAGE_TAGS = {
 # Console backend prints emails to terminal — no SMTP needed locally.
 # Production email (Brevo SMTP) is configured in settings_render.py only.
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'UrbanEats <noreply@yourdomain.com>'
+DEFAULT_FROM_EMAIL = 'UrbanEats <django.urbaneats@gmail.com>'
 
 # Payments
 PAYPAL_CLIENT_ID = config('PAYPAL_CLIENT_ID')
