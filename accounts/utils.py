@@ -37,6 +37,7 @@ def send_verification_email(request, user, mail_subject, email_template):
         'domain': current_site.domain,
         'uid': urlsafe_base64_encode(force_bytes(user.pk)),
         'token': default_token_generator.make_token(user),
+        'protocol': 'https' if request.is_secure() else 'http',
     })
 
     mail = EmailMessage(
