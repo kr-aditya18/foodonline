@@ -88,8 +88,6 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'UrbanEats <django.urb
 EMAIL_HOST_USER     = os.environ.get('BREVO_SMTP_LOGIN')    # your Brevo account email
 EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_KEY')      # SMTP key from Brevo dashboard
 
-# Must match a verified sender in your Brevo account → Senders & IPs → Senders
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'UrbanEats <noreply@yourdomain.com>')
 
 # ── Logging — visible in Render log dashboard ─────────────────────────────────
 LOGGING = {
