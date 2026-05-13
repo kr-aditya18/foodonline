@@ -31,7 +31,5 @@ echo "==> Starting Gunicorn..."
 exec gunicorn foodonline_main.wsgi:application \
     --bind 0.0.0.0:$PORT \
     --workers 2 \
-    --worker-class gevent \
-    --worker-connections 1000 \
     --timeout 300 \
     --log-level info
