@@ -73,21 +73,15 @@ CLOUDINARY_STORAGE = {
 }
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-
-EMAIL_BACKEND     = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST        = 'smtp-relay.brevo.com'
-EMAIL_PORT        = 465
-EMAIL_USE_TLS     = False
-EMAIL_USE_SSL     = True
-EMAIL_HOST_USER   = os.environ.get('BREVO_SMTP_LOGIN')
+EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST          = 'smtp-relay.brevo.com'
+EMAIL_PORT          = 2525
+EMAIL_USE_TLS       = True
+EMAIL_USE_SSL       = False
+EMAIL_HOST_USER     = os.environ.get('BREVO_SMTP_LOGIN')
 EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_KEY')
-EMAIL_TIMEOUT     = 30  # ADD THIS LINE
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'UrbanEats <django.urbaneats@gmail.com>')
-
-# These come from Render environment variables (set in dashboard or render.yaml)
-EMAIL_HOST_USER     = os.environ.get('BREVO_SMTP_LOGIN')    # your Brevo account email
-EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_KEY')      # SMTP key from Brevo dashboard
-
+EMAIL_TIMEOUT       = 30
+DEFAULT_FROM_EMAIL  = os.environ.get('DEFAULT_FROM_EMAIL', 'UrbanEats <django.urbaneats@gmail.com>')
 
 # ── Logging — visible in Render log dashboard ─────────────────────────────────
 LOGGING = {
