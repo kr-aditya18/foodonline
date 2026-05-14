@@ -4,7 +4,7 @@
 
 <!-- Main Section Start -->
 <div class="main-section pt-5">
-    <div class="page-section">
+    <div class="page-section pb-5">
         <div class="container">
             <div class="row">
 
@@ -21,66 +21,57 @@
                         <div class="tab-content">
                             <div id="home" class="tab-pane in active">
                                 <div class="menu-itam-holder">
-
                                     <div id="menu-item-list-6272" class="menu-itam-list">
                                         {% if cart_items %}
-                                        <ul>
+                                        <ul class="cart-list">
                                             {% for item in cart_items %}
-                                            <li id="cart-item-{{ item.id }}">
+                                            <li id="cart-item-{{ item.id }}" class="cart-row">
 
-                                                <!-- Image -->
-                                                <div class="image-holder">
-                                                    <img src="{{ item.fooditems.image.url }}" alt="{{ item.fooditems.food_title }}">
+                                                <div class="cart-thumb">
+                                                    <img src="{{ item.fooditems.image.url }}"
+                                                         alt="{{ item.fooditems.food_title }}">
                                                 </div>
 
-                                                <!-- Name + vendor + description -->
-                                                <div class="text-holder">
+                                                <div class="cart-info">
                                                     <h6>{{ item.fooditems.food_title }}</h6>
-
                                                     <a href="{% url 'marketplace' %}{{ item.fooditems.category.vendor.vendor_slug }}/"
-                                                       class="vendor-badge"
+                                                       class="cart-vendor-badge"
                                                        title="View {{ item.fooditems.category.vendor.vendor_name }}">
-                                                        <i class="fa fa-cutlery" style="font-size:9px;"></i>
+                                                        <i class="fa fa-cutlery"></i>
                                                         {{ item.fooditems.category.vendor.vendor_name }}
                                                     </a>
-
-                                                    <span>{{ item.fooditems.description }}</span>
+                                                    <p class="cart-desc">{{ item.fooditems.description }}</p>
                                                 </div>
 
-                                                <!-- Price + controls -->
-                                                <div class="price-holder">
-                                                    <span class="price">&#8377;{{ item.fooditems.price }}</span>
+                                                <div class="cart-right">
+                                                    <span class="cart-price">&#8377;{{ item.fooditems.price }}</span>
 
-                                                    <div class="cart-qty-controls">
-                                                        <!-- DECREASE -->
+                                                    <div class="qty-pill">
                                                         <a href="javascript:void(0)"
-                                                           class="decrease_cart"
+                                                           class="decrease_cart qty-pill-btn"
                                                            data-id="{{ item.fooditems.id }}"
                                                            data-url="{% url 'decrease_cart' item.fooditems.id %}"
                                                            title="Decrease">
                                                             <i class="icon-minus"></i>
                                                         </a>
-
-                                                        <label id="qty-{{ item.fooditems.id }}">{{ item.quantity }}</label>
-
-                                                        <!-- ADD -->
+                                                        <label id="qty-{{ item.fooditems.id }}"
+                                                               class="qty-pill-num">{{ item.quantity }}</label>
                                                         <a href="javascript:void(0)"
-                                                           class="add_to_cart"
+                                                           class="add_to_cart qty-pill-btn"
                                                            data-id="{{ item.fooditems.id }}"
                                                            data-url="{% url 'add_to_cart' item.fooditems.id %}"
                                                            title="Increase">
                                                             <i class="icon-plus4"></i>
                                                         </a>
-
-                                                        <!-- DELETE — inside the row so it never wraps -->
-                                                        <a href="javascript:void(0)"
-                                                           class="delete_cart cart-delete-btn"
-                                                           data-id="{{ item.id }}"
-                                                           data-url="{% url 'delete_cart' item.id %}"
-                                                           title="Remove item">
-                                                            <i class="fa fa-trash"></i>
-                                                        </a>
                                                     </div>
+
+                                                    <a href="javascript:void(0)"
+                                                       class="delete_cart qty-delete-btn"
+                                                       data-id="{{ item.id }}"
+                                                       data-url="{% url 'delete_cart' item.id %}"
+                                                       title="Remove item">
+                                                        <i class="fa fa-trash"></i>
+                                                    </a>
 
                                                     <span id="add-menu-loader-{{ item.fooditems.id }}"></span>
                                                 </div>
@@ -98,7 +89,6 @@
                                         </div>
                                         {% endif %}
                                     </div>
-
                                 </div>
                             </div>
                         </div>
@@ -118,41 +108,37 @@
                         <div class="tab-content">
                             <div id="order" class="tab-pane in active">
                                 <div class="menu-itam-holder">
-                                    <div>
-                                        <ul>
-                                            <li style="list-style-type:none;">
-                                                Subtotal
-                                                <span class="price float-right">
-                                                    <span class="currency">&#8377;</span>
-                                                    <span id="subtotal">{{ subtotal }}</span>
-                                                </span>
-                                            </li>
 
-                                            {% for key, value in tax_dict.items %}
-                                                {% for i, j in value.items %}
-                                                <li style="list-style-type:none;">
+                                    <div class="order-summary-card">
+                                        <div class="order-summary-row">
+                                            <span class="osr-label">Subtotal</span>
+                                            <span class="osr-value">&#8377; <span id="subtotal">{{ subtotal }}</span></span>
+                                        </div>
+                                        {% for key, value in tax_dict.items %}
+                                            {% for i, j in value.items %}
+                                            <div class="order-summary-row">
+                                                <span class="osr-label osr-tax">
                                                     {{ key }} <small>({{ i }}%)</small>
-                                                    <span class="price float-right">
-                                                        <span class="currency">&#8377;</span>
-                                                        <span id="tax-{{ key }}">{{ j }}</span>
-                                                    </span>
-                                                </li>
-                                                {% endfor %}
-                                            {% endfor %}
-
-                                            <li style="list-style-type:none; font-weight:600;">
-                                                Total
-                                                <span class="price float-right">
-                                                    <span class="currency">&#8377;</span>
-                                                    <span id="grand_total">{{ grand_total }}</span>
                                                 </span>
-                                            </li>
-
-                                            <a href="{% url 'checkout' %}" class="btn btn-danger w-100 p-2 mt-3">
-                                                PROCEED TO CHECKOUT
-                                            </a>
-                                        </ul>
+                                                <span class="osr-value">
+                                                    &#8377; <span id="tax-{{ key }}">{{ j }}</span>
+                                                </span>
+                                            </div>
+                                            {% endfor %}
+                                        {% endfor %}
+                                        <div class="order-summary-row order-summary-total">
+                                            <span>Total</span>
+                                            <span>&#8377; <span id="grand_total">{{ grand_total }}</span></span>
+                                        </div>
                                     </div>
+
+                                    <div class="order-checkout-btn-wrap">
+                                        <a href="{% url 'checkout' %}"
+                                           class="btn btn-danger w-100 order-checkout-btn">
+                                            PROCEED TO CHECKOUT
+                                        </a>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>

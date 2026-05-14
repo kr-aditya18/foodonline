@@ -37,4 +37,31 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  /* ── Auth dropdown hover with gap tolerance ── */
+var authWrapper  = document.querySelector('.auth-dropdown-wrapper');
+var authDropdown = document.querySelector('.auth-dropdown');
+var hideTimer;
+
+if (authWrapper && authDropdown) {
+  authWrapper.addEventListener('mouseenter', function () {
+    clearTimeout(hideTimer);
+    authDropdown.classList.add('open');
+  });
+
+  authWrapper.addEventListener('mouseleave', function () {
+    hideTimer = setTimeout(function () {
+      authDropdown.classList.remove('open');
+    }, 150); // 150ms grace period to cross the gap
+  });
+
+  authDropdown.addEventListener('mouseenter', function () {
+    clearTimeout(hideTimer);
+  });
+
+  authDropdown.addEventListener('mouseleave', function () {
+    hideTimer = setTimeout(function () {
+      authDropdown.classList.remove('open');
+    }, 150);
+  });
+}
 });

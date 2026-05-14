@@ -11,7 +11,6 @@
         <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
           <div class="company-info-detail">
 
-            <!-- Restaurant name + address -->
             <div class="company-info">
               <div class="img-holder">
                 <figure>
@@ -31,34 +30,20 @@
                   {% endif %}
                 </div>
 
-                <!-- ── Dynamic Open / Closed Badge ── -->
                 {% if is_open %}
-                  <span style="
-                    display:inline-flex; align-items:center; gap:5px;
-                    background:rgba(39,174,96,0.12); border:1.5px solid #a9dfbf;
-                    color:#1e8449; font-size:0.75rem; font-weight:700;
-                    letter-spacing:0.06em; text-transform:uppercase;
-                    padding:3px 10px; border-radius:20px; margin-top:6px;">
-                    <span style="width:7px;height:7px;border-radius:50%;background:#27ae60;display:inline-block;"></span>
-                    Open Now
+                  <span class="status-badge status-open">
+                    <span class="status-dot"></span>Open Now
                   </span>
                 {% else %}
-                  <span style="
-                    display:inline-flex; align-items:center; gap:5px;
-                    background:rgba(192,57,43,0.08); border:1.5px solid #f5c6c6;
-                    color:#c0392b; font-size:0.75rem; font-weight:700;
-                    letter-spacing:0.06em; text-transform:uppercase;
-                    padding:3px 10px; border-radius:20px; margin-top:6px;">
-                    <span style="width:7px;height:7px;border-radius:50%;background:#e74c3c;display:inline-block;"></span>
-                    Closed Now
+                  <span class="status-badge status-closed">
+                    <span class="status-dot"></span>Closed Now
                   </span>
                 {% endif %}
-                <!-- ── /Badge ── -->
 
               </div>
             </div>
 
-            <!-- ── Hours Dropdown ── -->
+            <!-- Hours Dropdown -->
             <div class="delivery-timing reviews-sortby">
               <ul>
                 <li>
@@ -71,7 +56,6 @@
                     {% endif %}
                     <i class="icon-chevron-small-down"></i>
                   </a>
-
                   <ul class="delivery-dropdown">
                     {% if all_hours %}
                       {% for slot in all_hours %}
@@ -96,7 +80,6 @@
                 </li>
               </ul>
             </div>
-            <!-- ── /Hours Dropdown ── -->
 
           </div>
         </div>
@@ -130,7 +113,9 @@
           <div class="tabs-holder horizontal">
             <ul class="stickynav-tabs nav nav-tabs">
               <li class="active">
-                <a data-toggle="tab" href="#home"><i class="icon- icon-room_service"></i>Menu</a>
+                <a data-toggle="tab" href="#home">
+                  <i class="icon- icon-room_service"></i>Menu
+                </a>
               </li>
             </ul>
             <div class="tab-content">
@@ -139,43 +124,53 @@
                   <div id="menu-item-list-6272" class="menu-itam-list">
 
                     {% for category in categories %}
-                    <div class="element-title" id="menu-category-{{ category.id }}">
-                      <h5 class="text-color">{{ category }}</h5>
-                      <span>{{ category.description }}</span>
-                    </div>
-                    <ul>
-                      {% for food in category.fooditems.all %}
-                      <li>
-                        <div class="image-holder">
-                          <img src="{{ food.image.url }}" alt="">
-                        </div>
-                        <div class="text-holder">
-                          <h6>{{ food }}</h6>
-                          <span>{{ food.description }}</span>
-                        </div>
-                        <div class="price-holder">
-                          <span class="price">&#8377;{{ food.price }}</span>
+                    <div class="vd-category-block" id="menu-category-{{ category.id }}">
+                      <div class="vd-category-header">
+                        <h5 class="vd-category-title">{{ category }}</h5>
+                        {% if category.description %}
+                          <span class="vd-category-desc">{{ category.description }}</span>
+                        {% endif %}
+                      </div>
 
-                          <a href="javascript:void(0)" class="decrease_cart"
-                             data-id="{{ food.id }}"
-                             data-url="{% url 'decrease_cart' food.id %}"
-                             style="margin-right:15px;">
-                            <i class="icon-minus text-color"></i>
-                          </a>
+                      <ul class="vd-menu-list">
+                        {% for food in category.fooditems.all %}
+                        <li class="vd-menu-item">
 
-                          <label id="qty-{{ food.id }}">0</label>
+                          <div class="vd-img">
+                            <img src="{{ food.image.url }}" alt="{{ food }}">
+                          </div>
 
-                          <a href="javascript:void(0)" class="add_to_cart"
-                             data-id="{{ food.id }}"
-                             data-url="{% url 'add_to_cart' food.id %}">
-                            <i class="icon-plus4 text-color"></i>
-                          </a>
+                          <div class="vd-text">
+                            <h6>{{ food }}</h6>
+                            <span>{{ food.description }}</span>
+                          </div>
+
+                          <div class="vd-price-col">
+                            <span class="vd-price">&#8377;{{ food.price }}</span>
+                            <div class="vd-qty-pill">
+                              <a href="javascript:void(0)"
+                                 class="decrease_cart vd-qty-btn"
+                                 data-id="{{ food.id }}"
+                                 data-url="{% url 'decrease_cart' food.id %}"
+                                 title="Decrease">
+                                <svg width="12" height="12" viewBox="0 0 12 2" fill="none"><rect y="0" width="12" height="2" rx="1" fill="currentColor"/></svg>
+                              </a>
+                              <label id="qty-{{ food.id }}" class="vd-qty-num">0</label>
+                              <a href="javascript:void(0)"
+                                 class="add_to_cart vd-qty-btn"
+                                 data-id="{{ food.id }}"
+                                 data-url="{% url 'add_to_cart' food.id %}"
+                                 title="Increase">
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect y="5" width="12" height="2" rx="1" fill="currentColor"/><rect x="5" width="2" height="12" rx="1" fill="currentColor"/></svg>
+                              </a>
+                            </div>
+                          </div>
 
                           <span id="add-menu-loader-{{ food.id }}"></span>
-                        </div>
-                      </li>
-                      {% endfor %}
-                    </ul>
+                        </li>
+                        {% endfor %}
+                      </ul>
+                    </div>
                     {% endfor %}
 
                   </div>

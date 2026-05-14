@@ -2,56 +2,14 @@
 {% load static %}
 {% block content %}
 
-<style>
-    .checkout-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: stretch;
-    }
-    .checkout-col {
-        display: flex;
-        flex-direction: column;
-    }
-    .checkout-col .tabs-holder {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
-    .checkout-col .tab-content {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
-    .checkout-col .tab-pane {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
-    .checkout-col .menu-itam-holder {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
-    .checkout-col .menu-itam-list {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
-    .checkout-col form {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
-</style>
-
 <!-- Main Section Start -->
 <div class="main-section pt-5">
     <div class="page-section pb-5">
         <div class="container">
-            <div class="row checkout-row">
+            <div class="row">
 
                 <!-- Billing Address -->
-                <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12 checkout-col">
+                <div class="col-lg-6 col-md-6 col-sm-12">
                     <div class="tabs-holder horizontal">
                         <ul class="stickynav-tabs nav nav-tabs">
                             <li class="active">
@@ -63,34 +21,34 @@
                         <div class="tab-content">
                             <div id="home" class="tab-pane in active">
                                 <div class="menu-itam-holder">
-                                    <div class="menu-itam-list">
+                                    <div class="menu-itam-list co-billing-form">
                                         <form id="checkout-form" action="{% url 'place_order' %}" method="POST">
                                             {% csrf_token %}
 
                                             <div class="row">
-                                                <div class="form-group col-md-6 col-sm-12 col-lg-6">
+                                                <div class="form-group col-md-6">
                                                     <label>First Name</label>
-                                                    {{form.first_name}}
+                                                    {{ form.first_name }}
                                                 </div>
-                                                <div class="form-group col-md-6 col-sm-12 col-lg-6">
+                                                <div class="form-group col-md-6">
                                                     <label>Last Name</label>
-                                                    {{form.last_name}}
+                                                    {{ form.last_name }}
                                                 </div>
                                             </div>
 
                                             <div class="row">
-                                                <div class="form-group col-md-6 col-sm-12 col-lg-6">
+                                                <div class="form-group col-md-6">
                                                     <label>Phone Number</label>
-                                                    {{form.phone}}
+                                                    {{ form.phone }}
                                                 </div>
-                                                <div class="form-group col-md-6 col-sm-12 col-lg-6">
+                                                <div class="form-group col-md-6">
                                                     <label>Email Address</label>
-                                                    {{form.email}}
+                                                    {{ form.email }}
                                                 </div>
                                             </div>
 
                                             <div class="row">
-                                                <div class="form-group col-md-12 col-sm-12 col-lg-12">
+                                                <div class="form-group col-md-12">
                                                     <label>Address</label>
                                                     <input type="text" id="id_address" name="address"
                                                         placeholder="Start Typing..."
@@ -102,24 +60,24 @@
                                             </div>
 
                                             <div class="row">
-                                                <div class="form-group col-md-6 col-sm-12 col-lg-6">
+                                                <div class="form-group col-md-6">
                                                     <label>Country</label>
-                                                    {{form.country}}
+                                                    {{ form.country }}
                                                 </div>
-                                                <div class="form-group col-md-6 col-sm-12 col-lg-6">
+                                                <div class="form-group col-md-6">
                                                     <label>State</label>
-                                                    {{form.state}}
+                                                    {{ form.state }}
                                                 </div>
                                             </div>
 
                                             <div class="row">
-                                                <div class="form-group col-md-6 col-sm-12 col-lg-6">
+                                                <div class="form-group col-md-6">
                                                     <label>City</label>
-                                                    {{form.city}}
+                                                    {{ form.city }}
                                                 </div>
-                                                <div class="form-group col-md-6 col-sm-12 col-lg-6">
+                                                <div class="form-group col-md-6">
                                                     <label>Pin Code</label>
-                                                    {{form.pin_code}}
+                                                    {{ form.pin_code }}
                                                 </div>
                                             </div>
 
@@ -131,8 +89,8 @@
                     </div>
                 </div>
 
-                <!-- Your Order Section -->
-                <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12 checkout-col">
+                <!-- Your Order -->
+                <div class="col-lg-6 col-md-6 col-sm-12">
                     <div class="tabs-holder horizontal">
                         <ul class="stickynav-tabs nav nav-tabs">
                             <li class="active">
@@ -146,125 +104,109 @@
                                 <div class="menu-itam-holder">
                                     <div class="menu-itam-list">
 
-                                        
-                                        <ul>
+                                        <!-- Cart Items -->
+                                        <ul class="co-cart-list">
                                             {% for item in cart_items %}
-                                            <li id="cart-item-{{item.id}}">
-                                                <div class="image-holder">
-                                                    <img src="{{item.fooditems.image.url}}" alt="">
+                                            <li id="cart-item-{{ item.id }}" class="co-cart-row">
+
+                                                <div class="co-thumb">
+                                                    <img src="{{ item.fooditems.image.url }}"
+                                                         alt="{{ item.fooditems.food_title }}">
                                                 </div>
-                                                <div class="text-holder">
-                                                    <h6>{{item.fooditems.food_title}}</h6>
 
-                                                    <!-- Vendor Badge -->
-                                                    <a href="{% url 'marketplace' %}{{item.fooditems.category.vendor.vendor_slug}}/"
-                                                       title="View {{item.fooditems.category.vendor.vendor_name}}"
-                                                       style="
-                                                           display: inline-flex;
-                                                           align-items: center;
-                                                           gap: 4px;
-                                                           font-size: 11px;
-                                                           font-weight: 600;
-                                                           color: #c0392b;
-                                                           background: #fff5f5;
-                                                           border: 1px solid #e8c4c4;
-                                                           border-radius: 4px;
-                                                           padding: 2px 8px;
-                                                           margin-bottom: 5px;
-                                                           text-decoration: none;
-                                                           letter-spacing: 0.2px;
-                                                           transition: background 0.2s, border-color 0.2s;
-                                                       "
-                                                       onmouseover="this.style.background='#fdecea';this.style.borderColor='#c0392b';"
-                                                       onmouseout="this.style.background='#fff5f5';this.style.borderColor='#e8c4c4';">
-                                                        <i class="fa fa-cutlery" style="font-size:9px;"></i>
-                                                        {{item.fooditems.category.vendor.vendor_name}}
+                                                <div class="co-info">
+                                                    <div class="co-name">{{ item.fooditems.food_title }}</div>
+                                                    <a href="{% url 'marketplace' %}{{ item.fooditems.category.vendor.vendor_slug }}/"
+                                                       class="co-vendor-badge">
+                                                        <i class="fa fa-cutlery"></i>
+                                                        {{ item.fooditems.category.vendor.vendor_name }}
                                                     </a>
-
-                                                    <span>{{item.fooditems.description}}</span>
                                                 </div>
-                                                <div class="price-holder">
-                                                    <span class="price">&#8377;{{item.fooditems.price}}</span>
 
-                                                    <!-- DECREASE -->
+                                                <div class="co-right">
+                                                    <span class="co-price">&#8377;{{ item.fooditems.price }}</span>
+
+                                                    <div class="qty-pill">
+                                                        <a href="javascript:void(0)"
+                                                           class="decrease_cart qty-pill-btn"
+                                                           data-id="{{ item.fooditems.id }}"
+                                                           data-url="{% url 'decrease_cart' item.fooditems.id %}"
+                                                           title="Decrease">
+                                                            <i class="icon-minus"></i>
+                                                        </a>
+                                                        <label id="qty-{{ item.fooditems.id }}"
+                                                               class="qty-pill-num">{{ item.quantity }}</label>
+                                                        <a href="javascript:void(0)"
+                                                           class="add_to_cart qty-pill-btn"
+                                                           data-id="{{ item.fooditems.id }}"
+                                                           data-url="{% url 'add_to_cart' item.fooditems.id %}"
+                                                           title="Increase">
+                                                            <i class="icon-plus4"></i>
+                                                        </a>
+                                                    </div>
+
                                                     <a href="javascript:void(0)"
-                                                       class="decrease_cart"
-                                                       data-id="{{item.fooditems.id}}"
-                                                       data-url="{% url 'decrease_cart' item.fooditems.id %}"
-                                                       style="margin-right:15px;">
-                                                        <i class="icon-minus text-color"></i>
-                                                    </a>
-
-                                                    <label id="qty-{{item.fooditems.id}}">{{item.quantity}}</label>
-
-                                                    <!-- ADD -->
-                                                    <a href="javascript:void(0)"
-                                                       class="add_to_cart"
-                                                       data-id="{{item.fooditems.id}}"
-                                                       data-url="{% url 'add_to_cart' item.fooditems.id %}">
-                                                        <i class="icon-plus4 text-color"></i>
-                                                    </a>
-
-                                                    <!-- DELETE -->
-                                                    <a href="javascript:void(0)"
-                                                       class="delete_cart"
-                                                       data-id="{{item.id}}"
+                                                       class="delete_cart qty-delete-btn"
+                                                       data-id="{{ item.id }}"
                                                        data-url="{% url 'delete_cart' item.id %}"
-                                                       style="margin-left:15px;">
-                                                        <i class="fa fa-trash text-danger"></i>
+                                                       title="Remove">
+                                                        <i class="fa fa-trash"></i>
                                                     </a>
 
-                                                    <span id="add-menu-loader-{{item.fooditems.id}}"></span>
+                                                    <span id="add-menu-loader-{{ item.fooditems.id }}"></span>
                                                 </div>
+
                                             </li>
                                             {% endfor %}
                                         </ul>
 
-                                        <!-- Totals -->
-                                        <ul style="padding: 10px 15px; border-top: 1px solid #eee; margin-top: 10px;">
-                                            <li style="list-style-type:none; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
-                                                Subtotal
-                                                <span class="float-right">
-                                                    &#8377; <span id="subtotal">{{subtotal}}</span>
-                                                </span>
-                                            </li>
-
+                                        <!-- Order Summary -->
+                                        <div class="order-summary-card">
+                                            <div class="order-summary-row">
+                                                <span class="osr-label">Subtotal</span>
+                                                <span class="osr-value">&#8377; <span id="subtotal">{{ subtotal }}</span></span>
+                                            </div>
                                             {% for key, value in tax_dict.items %}
                                                 {% for i, j in value.items %}
-                                                <li style="list-style-type:none; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
-                                                    {{key}} <small>({{i}}%)</small>
-                                                    <span class="float-right">
-                                                        &#8377; <span id="tax-{{key}}">{{j}}</span>
+                                                <div class="order-summary-row">
+                                                    <span class="osr-label osr-tax">
+                                                        {{ key }} <small>({{ i }}%)</small>
                                                     </span>
-                                                </li>
+                                                    <span class="osr-value">
+                                                        &#8377; <span id="tax-{{ key }}">{{ j }}</span>
+                                                    </span>
+                                                </div>
                                                 {% endfor %}
                                             {% endfor %}
+                                            <div class="order-summary-row order-summary-total">
+                                                <span>Total</span>
+                                                <span>&#8377; <span id="grand_total">{{ grand_total }}</span></span>
+                                            </div>
+                                        </div>
 
-                                            <li style="list-style-type:none; padding: 8px 0; font-weight: 700; font-size: 15px; border-bottom: 1px solid #eee;">
-                                                Total
-                                                <span class="float-right">
-                                                    &#8377; <span id="grand_total">{{grand_total}}</span>
-                                                </span>
-                                            </li>
+                                        <!-- Payment Method -->
+                                        <div class="co-payment-wrap">
+                                            <div class="co-payment-title">Select Payment Method</div>
 
-                                            <!--Select Payment method-->
-                                            <h5>Select Payment Method</h5>
-                                            <div class="payment-method">
-                                                <label for="paypal" style="cursor:pointer;">
+                                            <div class="payment-method co-payment-options">
+                                                <label for="paypal" class="co-pay-label">
                                                     <input type="radio" id="paypal" name="payment_method" value="PayPal">
-                                                    <img src="{% static 'images/paypal.png' %}" alt="paypal" width="100">
+                                                    <img src="{% static 'images/paypal.png' %}" alt="PayPal" height="36">
                                                 </label>
-
-                                                <label for="razorpay" style="cursor:pointer;">
+                                                <label for="razorpay" class="co-pay-label">
                                                     <input type="radio" id="razorpay" name="payment_method" value="RazorPay">
-                                                    <img src="{% static 'images/razorpay_logo.png' %}" alt="razorpay" width="100">
+                                                    <img src="{% static 'images/razorpay_logo.png' %}" alt="Razorpay" height="36">
                                                 </label>
                                             </div>
-                                            <span class="text-danger" id="payment-method-error"></span>
-                                            <button type="button" onclick="return payMethodConfirm()" type = "submit" class = "btn btn-danger w-100 p-2 mt-2 mb-2">PLACE ORDER</button>
-                                        </ul>
 
-                                        
+                                            <span class="text-danger" id="payment-method-error"></span>
+
+                                            <button type="button"
+                                                    onclick="payMethodConfirm()"
+                                                    class="btn btn-danger w-100 co-place-order-btn">
+                                                PLACE ORDER
+                                            </button>
+                                        </div>
 
                                     </div>
                                 </div>
@@ -272,7 +214,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- Your Order End -->
 
             </div>
         </div>
@@ -281,26 +222,26 @@
 <!-- Main Section End -->
 
 <script>
-    function payMethodConfirm(){
+function payMethodConfirm() {
     var payMethod = document.querySelector("input[name='payment_method']:checked");
-    console.log("Selected:", payMethod ? payMethod.value : "none");
-    
-    if(!payMethod){
-        $('#payment-method-error').html("Select Payment method!");
+    if (!payMethod) {
+        document.getElementById('payment-method-error').textContent = "Please select a payment method!";
         return;
     }
-    
-    var conf = confirm("You have selected " + payMethod.value + " as your preferred payment method.\nClick 'OK' to continue");
-    if(conf){
-        // Append value to form before submitting
-        $('#checkout-form').append('<input type="hidden" name="payment_method" value="' + payMethod.value + '">');
-        $('#checkout-form').submit();
+    var conf = confirm("You have selected " + payMethod.value + " as your payment method.\nClick OK to continue.");
+    if (conf) {
+        var hidden = document.createElement('input');
+        hidden.type  = 'hidden';
+        hidden.name  = 'payment_method';
+        hidden.value = payMethod.value;
+        document.getElementById('checkout-form').appendChild(hidden);
+        document.getElementById('checkout-form').submit();
     }
 }
 
-document.querySelectorAll("input[name='payment_method']").forEach(function(radio){
-    radio.addEventListener('change', function(){
-        $('#payment-method-error').html("");
+document.querySelectorAll("input[name='payment_method']").forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        document.getElementById('payment-method-error').textContent = "";
     });
 });
 </script>
