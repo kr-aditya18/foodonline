@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'marketplace',
     'customers',
     'orders',
+    'ai_assistant',
 ]
 
 MIDDLEWARE = [
@@ -61,6 +62,7 @@ TEMPLATES = [
                 'marketplace.context_processors.get_cart_amounts',
                 'accounts.context_processors.get_user_profile',
                 'accounts.context_processors.get_paypal_client_id',
+                'ai_assistant.context_processors.ai_assistant_context',
             ],
         },
     },
@@ -127,3 +129,5 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
 
 RAZORPAY_KEY_ID     = config('RAZORPAY_KEY_ID')
 RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET')
+
+OPENROUTER_API_KEY = config('OPENROUTER_API_KEY', default='')

@@ -78,3 +78,7 @@ services:
         sync: false
       - key: DJANGO_SUPERUSER_LAST_NAME
         sync: false
+
+      # ── AI Assistant ─────────────────────────────────────────────────────
+      - key: OPENROUTER_API_KEY
+        sync: false

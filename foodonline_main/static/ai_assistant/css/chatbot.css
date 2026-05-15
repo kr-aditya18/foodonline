@@ -1,0 +1,393 @@
+/*
+ * FILE LOCATION:
+ *   static/ai_assistant/css/chatbot.css
+ *
+ * FoodOnline AI Assistant — Chat Widget Styles
+ * Theme: dark teal (#1a3c34) header + red (#e31837) accents
+ * Matches existing FoodOnline brand exactly.
+ */
+
+/* ── CSS Variables ──────────────────────────────────────────── */
+:root {
+  --foi-dark:     #1a3c34;
+  --foi-red:      #e31837;
+  --foi-red-dk:   #c0142f;
+  --foi-white:    #ffffff;
+  --foi-light:    #f8f9fa;
+  --foi-bg:       #f4f6f8;
+  --foi-border:   #dee2e6;
+  --foi-text:     #333333;
+  --foi-muted:    #6c757d;
+  --foi-radius:   12px;
+  --foi-shadow:   0 8px 32px rgba(0, 0, 0, 0.18);
+  --foi-fab-size: 58px;
+}
+
+/* ── Floating Action Button ─────────────────────────────────── */
+#foi-fab {
+  position:       fixed;
+  bottom:         28px;
+  right:          28px;
+  width:          var(--foi-fab-size);
+  height:         var(--foi-fab-size);
+  background:     var(--foi-red);
+  border-radius:  50%;
+  display:        flex;
+  align-items:    center;
+  justify-content: center;
+  cursor:         pointer;
+  z-index:        9998;
+  box-shadow:     0 4px 18px rgba(227, 24, 55, 0.45);
+  border:         none;
+  outline:        none;
+  transition:     transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  box-shadow 0.2s ease,
+                  background 0.2s ease;
+}
+#foi-fab:hover {
+  transform:  scale(1.1);
+  box-shadow: 0 6px 24px rgba(227, 24, 55, 0.55);
+  background: var(--foi-red-dk);
+}
+#foi-fab svg { pointer-events: none; }
+
+/* Notification dot on FAB */
+#foi-fab-dot {
+  position:      absolute;
+  top:           4px;
+  right:         4px;
+  width:         12px;
+  height:        12px;
+  background:    #ffc107;
+  border-radius: 50%;
+  border:        2px solid #fff;
+  display:       none;
+  animation:     foi-pulse 1.5s infinite;
+}
+
+/* ── Chat Window ────────────────────────────────────────────── */
+#foi-chat-window {
+  position:       fixed;
+  bottom:         100px;
+  right:          28px;
+  width:          370px;
+  max-height:     560px;
+  background:     var(--foi-white);
+  border-radius:  var(--foi-radius);
+  box-shadow:     var(--foi-shadow);
+  display:        flex;
+  flex-direction: column;
+  z-index:        9999;
+  overflow:       hidden;
+  /* Closed state */
+  transform:      scale(0.85) translateY(20px);
+  opacity:        0;
+  pointer-events: none;
+  transform-origin: bottom right;
+  transition:     transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity   0.22s ease;
+}
+#foi-chat-window.foi-open {
+  transform:      scale(1) translateY(0);
+  opacity:        1;
+  pointer-events: all;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+#foi-chat-header {
+  background:  var(--foi-dark);
+  color:       var(--foi-white);
+  padding:     14px 16px;
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  flex-shrink: 0;
+}
+#foi-chat-header .foi-avatar {
+  width:           38px;
+  height:          38px;
+  background:      var(--foi-red);
+  border-radius:   50%;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  font-size:       18px;
+  flex-shrink:     0;
+}
+#foi-chat-header .foi-header-info { flex: 1; }
+#foi-chat-header .foi-header-name {
+  font-weight:    700;
+  font-size:      15px;
+  letter-spacing: 0.01em;
+  line-height:    1.2;
+}
+#foi-chat-header .foi-header-status {
+  font-size:   11px;
+  opacity:     0.8;
+  display:     flex;
+  align-items: center;
+  gap:         4px;
+  margin-top:  2px;
+}
+.foi-status-dot {
+  width:         7px;
+  height:        7px;
+  background:    #4caf50;
+  border-radius: 50%;
+  display:       inline-block;
+  animation:     foi-pulse 2s infinite;
+}
+.foi-header-actions { display: flex; gap: 6px; }
+.foi-header-btn {
+  background:      rgba(255, 255, 255, 0.12);
+  border:          none;
+  color:           #fff;
+  width:           28px;
+  height:          28px;
+  border-radius:   6px;
+  cursor:          pointer;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  font-size:       14px;
+  transition:      background 0.15s;
+}
+.foi-header-btn:hover { background: rgba(255, 255, 255, 0.22); }
+
+/* ── Role Badge ─────────────────────────────────────────────── */
+#foi-role-badge {
+  padding:    4px 16px 10px;
+  background: var(--foi-dark);
+  font-size:  11px;
+  color:      rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+#foi-role-badge span {
+  background:     var(--foi-red);
+  color:          #fff;
+  padding:        1px 8px;
+  border-radius:  20px;
+  font-size:      10px;
+  font-weight:    600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── Messages Area ──────────────────────────────────────────── */
+#foi-messages {
+  flex:           1;
+  overflow-y:     auto;
+  padding:        14px 14px 8px;
+  display:        flex;
+  flex-direction: column;
+  gap:            10px;
+  background:     var(--foi-bg);
+  min-height:     240px;
+  max-height:     340px;
+  scroll-behavior: smooth;
+}
+#foi-messages::-webkit-scrollbar       { width: 4px; }
+#foi-messages::-webkit-scrollbar-track { background: transparent; }
+#foi-messages::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+/* Message wrapper */
+.foi-msg {
+  display:        flex;
+  flex-direction: column;
+  max-width:      85%;
+  animation:      foi-msgIn 0.2s ease;
+}
+.foi-msg.foi-user  { align-self: flex-end;  align-items: flex-end; }
+.foi-msg.foi-bot   { align-self: flex-start; align-items: flex-start; }
+
+/* Bubbles */
+.foi-bubble {
+  padding:       10px 13px;
+  border-radius: 16px;
+  font-size:     13.5px;
+  line-height:   1.5;
+  word-break:    break-word;
+  white-space:   pre-wrap;
+}
+.foi-msg.foi-user .foi-bubble {
+  background:              var(--foi-red);
+  color:                   #fff;
+  border-bottom-right-radius: 4px;
+}
+.foi-msg.foi-bot .foi-bubble {
+  background:             var(--foi-white);
+  color:                  var(--foi-text);
+  border-bottom-left-radius: 4px;
+  box-shadow:             0 1px 4px rgba(0, 0, 0, 0.08);
+  border:                 1px solid var(--foi-border);
+}
+
+/* Timestamp */
+.foi-msg-time {
+  font-size:  10px;
+  color:      var(--foi-muted);
+  margin-top: 3px;
+  padding:    0 4px;
+}
+
+/* ── Typing Indicator ───────────────────────────────────────── */
+#foi-typing {
+  display:     none;
+  align-self:  flex-start;
+  align-items: flex-start;
+}
+#foi-typing .foi-bubble {
+  background: var(--foi-white);
+  border:     1px solid var(--foi-border);
+  padding:    10px 16px;
+}
+.foi-typing-dots {
+  display:     flex;
+  gap:         4px;
+  align-items: center;
+}
+.foi-typing-dots span {
+  width:         7px;
+  height:        7px;
+  background:    var(--foi-muted);
+  border-radius: 50%;
+  animation:     foi-dot 1.2s infinite;
+}
+.foi-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.foi-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Suggestion Chips ───────────────────────────────────────── */
+#foi-suggestions {
+  padding:    6px 14px 8px;
+  display:    flex;
+  flex-wrap:  wrap;
+  gap:        6px;
+  background: var(--foi-bg);
+  flex-shrink: 0;
+}
+.foi-chip {
+  background:    var(--foi-white);
+  border:        1px solid var(--foi-red);
+  color:         var(--foi-red);
+  font-size:     11.5px;
+  padding:       4px 11px;
+  border-radius: 20px;
+  cursor:        pointer;
+  white-space:   nowrap;
+  transition:    background 0.15s, color 0.15s;
+}
+.foi-chip:hover {
+  background: var(--foi-red);
+  color:      var(--foi-white);
+}
+
+/* ── Input Area ─────────────────────────────────────────────── */
+#foi-input-area {
+  padding:     10px 12px;
+  background:  var(--foi-white);
+  border-top:  1px solid var(--foi-border);
+  display:     flex;
+  gap:         8px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+#foi-input-wrap {
+  flex:          1;
+  background:    var(--foi-light);
+  border:        1.5px solid var(--foi-border);
+  border-radius: 22px;
+  display:       flex;
+  align-items:   center;
+  padding:       0 12px;
+  overflow:      hidden;
+  transition:    border-color 0.15s;
+}
+#foi-input-wrap:focus-within { border-color: var(--foi-red); }
+
+#foi-input {
+  flex:        1;
+  border:      none;
+  background:  transparent;
+  outline:     none;
+  font-size:   13.5px;
+  padding:     9px 0;
+  resize:      none;
+  max-height:  90px;
+  line-height: 1.4;
+  color:       var(--foi-text);
+  font-family: inherit;
+}
+#foi-input::placeholder { color: #aaa; }
+
+/* Voice button */
+#foi-voice-btn {
+  background:  none;
+  border:      none;
+  color:       var(--foi-muted);
+  cursor:      pointer;
+  padding:     4px;
+  display:     flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition:  color 0.15s;
+}
+#foi-voice-btn:hover             { color: var(--foi-red); }
+#foi-voice-btn.foi-listening     { color: var(--foi-red); animation: foi-pulse 0.8s infinite; }
+
+/* Send button */
+#foi-send-btn {
+  width:           40px;
+  height:          40px;
+  background:      var(--foi-red);
+  color:           var(--foi-white);
+  border:          none;
+  border-radius:   50%;
+  cursor:          pointer;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  flex-shrink:     0;
+  box-shadow:      0 2px 8px rgba(227, 24, 55, 0.3);
+  transition:      background 0.15s, transform 0.15s;
+}
+#foi-send-btn:hover    { background: var(--foi-red-dk); transform: scale(1.06); }
+#foi-send-btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; transform: none; }
+
+/* ── Footer ─────────────────────────────────────────────────── */
+#foi-chat-footer {
+  text-align:  center;
+  font-size:   10.5px;
+  color:       var(--foi-muted);
+  padding:     6px 14px 8px;
+  background:  var(--foi-white);
+  border-top:  1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+/* ── Animations ─────────────────────────────────────────────── */
+@keyframes foi-pulse {
+  0%,  100% { transform: scale(1);   opacity: 1; }
+  50%        { transform: scale(1.3); opacity: 0.7; }
+}
+@keyframes foi-dot {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+  40%            { transform: scale(1);   opacity: 1; }
+}
+@keyframes foi-msgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  #foi-chat-window {
+    width:      calc(100vw - 24px);
+    right:      12px;
+    bottom:     86px;
+    max-height: 70vh;
+  }
+  #foi-fab {
+    bottom: 18px;
+    right:  18px;
+  }
+}

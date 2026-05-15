@@ -121,6 +121,9 @@ LOGGING = {
     },
 }
 
+# chatbot keys
+OPENROUTER_API_KEY = config('OPENROUTER_API_KEY', default='')
+
 # ── Payments (unchanged) ──────────────────────────────────────────────────────
 PAYPAL_CLIENT_ID  = os.environ.get('PAYPAL_CLIENT_ID')
 PAYPAL_SECRET     = os.environ.get('PAYPAL_SECRET')
