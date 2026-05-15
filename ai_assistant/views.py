@@ -171,3 +171,112 @@ def _get_or_create_session(user, role, session_key=''):
         mode=role,
         session_key=generate_session_key(),
     )
+    
+## ─────────────────────────────────────────────────────────────────
+##  MERGE THIS INTO ai_assistant/views.py  (add below existing views)
+## ─────────────────────────────────────────────────────────────────
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+import json
+
+from .utils import generate_food_item_structured, get_vendor_categories, get_user_role
+
+
+@login_required
+@require_POST
+def generate_food_item_view(request):
+    """
+    POST /ai/generate-food-item/
+    Body: { "prompt": "spicy paneer burger with chipotle sauce" }
+    Returns: { success, item: {title, description, category, price, tags} }
+              or { success: false, error: "..." }
+    """
+    role = get_user_role(request.user)
+    if role != "vendor":
+        return JsonResponse({"success": False, "error": "Only vendors can use this feature."}, status=403)
+
+    try:
+        body = json.loads(request.body)
+        prompt = body.get("prompt", "").strip()
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({"success": False, "error": "Invalid request body."}, status=400)
+
+    if not prompt:
+        return JsonResponse({"success": False, "error": "Please describe the food item."}, status=400)
+
+    # Get this vendor's existing categories for smarter suggestions
+    try:
+        from vendor.models import Vendor
+        vendor = Vendor.objects.get(user=request.user)
+        categories = get_vendor_categories(vendor)
+    except Exception:
+        vendor = None
+        categories = []
+
+    try:
+        item = generate_food_item_structured(prompt, vendor_categories=categories)
+        return JsonResponse({"success": True, "item": item})
+    except ValueError as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": f"AI error: {str(e)}"}, status=500)
+
+
+@login_required
+@require_POST
+def save_food_item_view(request):
+    """
+    POST /ai/save-food-item/
+    Body: { title, description, category, price, tags }
+    Saves the item to menu.FoodItem for the logged-in vendor.
+    Returns: { success, food_item_id, message }
+    """
+    role = get_user_role(request.user)
+    if role != "vendor":
+        return JsonResponse({"success": False, "error": "Only vendors can use this feature."}, status=403)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({"success": False, "error": "Invalid request body."}, status=400)
+
+    required_fields = ["title", "description", "category", "price"]
+    for field in required_fields:
+        if not body.get(field):
+            return JsonResponse({"success": False, "error": f"Missing field: {field}"}, status=400)
+
+    try:
+        from vendor.models import Vendor
+        from menu.models import Category, FoodItem
+
+        vendor = Vendor.objects.get(user=request.user)
+
+        # Get or create category
+        category_name = body["category"].strip()
+        category, _ = Category.objects.get_or_create(
+            vendor=vendor,
+            category_name__iexact=category_name,
+            defaults={"category_name": category_name}
+        )
+
+        # Create the food item
+        food_item = FoodItem.objects.create(
+            vendor=vendor,
+            category=category,
+            food_title=body["title"].strip(),
+            description=body["description"].strip(),
+            price=float(body["price"]),
+            is_available=True,
+        )
+
+        return JsonResponse({
+            "success": True,
+            "food_item_id": food_item.id,
+            "message": f"✅ '{food_item.food_title}' saved to your menu!",
+        })
+
+    except Exception as e:
+        return JsonResponse({"success": False, "error": f"Save failed: {str(e)}"}, status=500)

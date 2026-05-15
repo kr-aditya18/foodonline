@@ -443,4 +443,183 @@
   /* ── Start ── */
   init();
 
+// Phase - 2
+// Phase - 2
+
+  /* ── Trigger keywords ── */
+  var FOOD_GEN_TRIGGERS = [
+    "add food", "add item", "new item", "create item", "generate item",
+    "add dish", "new dish", "create dish", "menu item", "add to menu",
+    "create food", "generate food", "i want to add", "add a food",
+  ];
+
+  function isFoodGenRequest(text) {
+    var lower = text.toLowerCase();
+    return FOOD_GEN_TRIGGERS.some(function (kw) { return lower.includes(kw); });
+  }
+
+  /* ── Override sendMessage to intercept food-gen requests ── */
+  var _originalSendMessage = sendMessage;
+
+  sendMessage = function (overrideText) {
+    var text = (overrideText !== undefined ? overrideText : inputEl.value).trim();
+
+    if (text && currentRole === 'vendor' && isFoodGenRequest(text)) {
+      inputEl.value        = '';
+      inputEl.style.height = 'auto';
+      appendMessage('user', text);
+      suggsEl.style.display = 'none';
+      triggerFoodItemGenerator(text);
+      return;
+    }
+
+    _originalSendMessage(overrideText);
+  };
+
+  /* ── Main generator flow ── */
+  function triggerFoodItemGenerator(prompt) {
+    setTyping(true);
+    sendBtn.disabled = true;
+
+    fetch('/ai/generate-food-item/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken':  getCookie('csrftoken'),
+      },
+      body: JSON.stringify({ prompt: prompt }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      setTyping(false);
+      sendBtn.disabled = false;
+
+      if (data.success) {
+        appendMessage('bot', '✨ Here\'s your AI-generated menu item! Review and edit before saving:');
+        appendFoodCard(data.item);
+      } else {
+        appendMessage('bot', '❌ Couldn\'t generate item: ' + data.error);
+      }
+    })
+    .catch(function () {
+      setTyping(false);
+      sendBtn.disabled = false;
+      appendMessage('bot', '❌ Network error while generating item. Please try again.');
+    });
+  }
+
+  /* ── Render editable food card ── */
+  function appendFoodCard(item) {
+    var tagsStr = Array.isArray(item.tags) ? item.tags.join(', ') : item.tags;
+    var uid     = 'fgc-' + Date.now();
+
+    var card = document.createElement('div');
+    card.className    = 'food-gen-card';
+    card.dataset.uid  = uid;
+    card.innerHTML    = [
+      '<div class="fgc-header">',
+      '  <span class="fgc-icon">🍽️</span>',
+      '  <span class="fgc-label">AI Menu Item — Edit &amp; Save</span>',
+      '</div>',
+      '<div class="fgc-field"><label>Title</label>',
+      '  <input class="fgc-input fgc-title" type="text" value="' + escHtml(item.title) + '" /></div>',
+      '<div class="fgc-field"><label>Description</label>',
+      '  <textarea class="fgc-input fgc-desc" rows="3">' + escHtml(item.description) + '</textarea></div>',
+      '<div class="fgc-row">',
+      '  <div class="fgc-field"><label>Category</label>',
+      '    <input class="fgc-input fgc-category" type="text" value="' + escHtml(item.category) + '" /></div>',
+      '  <div class="fgc-field"><label>Price (₹)</label>',
+      '    <input class="fgc-input fgc-price" type="number" min="0" step="0.5" value="' + item.price + '" /></div>',
+      '</div>',
+      '<div class="fgc-field"><label>Tags <span class="fgc-hint">(comma-separated)</span></label>',
+      '  <input class="fgc-input fgc-tags" type="text" value="' + escHtml(tagsStr) + '" /></div>',
+      '<div class="fgc-actions">',
+      '  <button class="fgc-btn fgc-btn-save">💾 Save to Menu</button>',
+      '  <button class="fgc-btn fgc-btn-discard">🗑️ Discard</button>',
+      '</div>',
+      '<div class="fgc-status"></div>',
+    ].join('');
+
+    card.querySelector('.fgc-btn-save').addEventListener('click', function () { saveFoodCard(card); });
+    card.querySelector('.fgc-btn-discard').addEventListener('click', function () { discardFoodCard(card); });
+
+    msgContainer.insertBefore(card, typingEl);
+    scrollBottom();
+  }
+
+  /* ── Save handler ── */
+  function saveFoodCard(card) {
+    var statusEl = card.querySelector('.fgc-status');
+    var saveBtn  = card.querySelector('.fgc-btn-save');
+
+    var payload = {
+      title:       card.querySelector('.fgc-title').value.trim(),
+      description: card.querySelector('.fgc-desc').value.trim(),
+      category:    card.querySelector('.fgc-category').value.trim(),
+      price:       parseFloat(card.querySelector('.fgc-price').value),
+      tags:        card.querySelector('.fgc-tags').value
+                     .split(',').map(function (t) { return t.trim(); }).filter(Boolean),
+    };
+
+    if (!payload.title || !payload.category || isNaN(payload.price)) {
+      statusEl.textContent = '⚠️ Please fill in title, category and price.';
+      statusEl.className   = 'fgc-status fgc-status-error';
+      return;
+    }
+
+    saveBtn.disabled    = true;
+    saveBtn.textContent = 'Saving…';
+
+    fetch('/ai/save-food-item/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken':  getCookie('csrftoken'),
+      },
+      body: JSON.stringify(payload),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.success) {
+        statusEl.textContent = data.message;
+        statusEl.className   = 'fgc-status fgc-status-success';
+        saveBtn.textContent  = '✅ Saved';
+        card.querySelector('.fgc-btn-discard').style.display = 'none';
+        setTimeout(function () {
+          appendMessage('bot', '🎉 "' + payload.title + '" has been added to your menu! Want to add another item?');
+        }, 600);
+      } else {
+        statusEl.textContent = '❌ ' + data.error;
+        statusEl.className   = 'fgc-status fgc-status-error';
+        saveBtn.disabled     = false;
+        saveBtn.textContent  = '💾 Save to Menu';
+      }
+    })
+    .catch(function () {
+      statusEl.textContent = '❌ Network error. Try again.';
+      statusEl.className   = 'fgc-status fgc-status-error';
+      saveBtn.disabled     = false;
+      saveBtn.textContent  = '💾 Save to Menu';
+    });
+  }
+
+  /* ── Discard handler ── */
+  function discardFoodCard(card) {
+    card.style.opacity    = '0';
+    card.style.transform  = 'scale(0.95)';
+    card.style.transition = 'all 0.25s ease';
+    setTimeout(function () { card.remove(); }, 260);
+    appendMessage('bot', 'Card discarded. Want to try a different description?');
+  }
+
+  /* ── HTML escape helper ── */
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
 }());
+

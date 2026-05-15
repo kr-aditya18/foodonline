@@ -2,26 +2,16 @@ import uuid
 import requests
 import logging
 from django.conf import settings
+import json, re
 
 logger = logging.getLogger(__name__)
 
 
-# ──────────────────────────────────────────────────────────────
-# ROLE DETECTION
-# ──────────────────────────────────────────────────────────────
+# ── ROLE DETECTION ──────────────────────────────────────────────────────────
 
 def get_user_role(user):
-    """
-    Returns 'vendor', 'customer', or 'guest'.
-    FoodOnline stores role as an integer on the User model:
-        1 = Customer
-        2 = Vendor
-    ⚠️  If your project uses different values, update below.
-    Check your accounts/models.py User model constants.
-    """
     if not user or not user.is_authenticated:
         return 'guest'
-
     role = getattr(user, 'role', None)
     if role == 1:
         return 'vendor'
@@ -34,9 +24,7 @@ def generate_session_key():
     return uuid.uuid4().hex
 
 
-# ──────────────────────────────────────────────────────────────
-# SYSTEM PROMPTS  (role-based)
-# ──────────────────────────────────────────────────────────────
+# ── SYSTEM PROMPTS ───────────────────────────────────────────────────────────
 
 VENDOR_SYSTEM_PROMPT = """You are an AI assistant for FoodOnline, a multi-vendor restaurant marketplace.
 You are helping a VENDOR (restaurant owner) manage their menu and business.
@@ -92,41 +80,31 @@ def get_system_prompt(role):
     }.get(role, GUEST_SYSTEM_PROMPT)
 
 
-# ──────────────────────────────────────────────────────────────
-# OPENROUTER API CLIENT
-# ──────────────────────────────────────────────────────────────
+# ── OPENROUTER CLIENT ────────────────────────────────────────────────────────
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Free models — tried in order if one is rate-limited
 FREE_MODELS = [
-    "meta-llama/llama-3.1-8b-instruct:free",
-    "mistralai/mistral-7b-instruct:free",
-    "google/gemma-2-9b-it:free",
+    "openrouter/free",
+    "arcee-ai/trinity-large-preview:free",
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
 ]
 
 
 def call_openrouter(messages, role='guest', model=None):
     """
     Send messages to OpenRouter and return AI reply.
+    Injects a role-based system prompt automatically.
 
-    Args:
-        messages : list of {'role': ..., 'content': ...}
-        role     : 'vendor' | 'customer' | 'guest'
-        model    : override model string (optional)
-
-    Returns:
-        {'success': bool, 'reply': str, 'error': str|None}
+    Returns: {'success': bool, 'reply': str, 'error': str|None}
     """
     api_key = getattr(settings, 'OPENROUTER_API_KEY', '')
-
     if not api_key:
         logger.warning("OPENROUTER_API_KEY not set.")
         return {
             'success': False,
-            'reply': "⚙️ AI assistant is not configured yet. "
-                     "Please set the OPENROUTER_API_KEY environment variable.",
-            'error': 'API key not configured',
+            'reply':   "⚙️ AI assistant is not configured yet. Please set the OPENROUTER_API_KEY environment variable.",
+            'error':   'API key not configured',
         }
 
     system_prompt = get_system_prompt(role)
@@ -134,26 +112,32 @@ def call_openrouter(messages, role='guest', model=None):
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": getattr(settings, 'SITE_URL', 'https://foodonline.onrender.com'),
-        "X-Title": "FoodOnline AI Assistant",
+        "Content-Type":  "application/json",
+        "HTTP-Referer":  getattr(settings, 'SITE_URL', 'https://foodonline.onrender.com'),
+        "X-Title":       "FoodOnline AI Assistant",
     }
 
     models_to_try = ([model] if model else []) + FREE_MODELS
 
     for attempt_model in models_to_try:
-        payload = {
-            "model": attempt_model,
-            "messages": full_messages,
-            "max_tokens": 512,
-            "temperature": 0.7,
-        }
         try:
-            resp = requests.post(OPENROUTER_API_URL, headers=headers, json=payload, timeout=30)
+            resp = requests.post(
+                OPENROUTER_API_URL,
+                headers=headers,
+                json={
+                    "model":       attempt_model,
+                    "messages":    full_messages,
+                    "max_tokens":  512,
+                    "temperature": 0.7,
+                },
+                timeout=30,
+            )
 
             if resp.status_code == 200:
-                reply = resp.json()['choices'][0]['message']['content'].strip()
-                logger.info(f"OpenRouter OK — model: {attempt_model}")
+                data         = resp.json()
+                reply        = data['choices'][0]['message']['content'].strip()
+                actual_model = data.get('model', attempt_model)
+                logger.info(f"OpenRouter OK — requested: {attempt_model} | actual: {actual_model}")
                 return {'success': True, 'reply': reply, 'error': None}
 
             elif resp.status_code == 429:
@@ -173,17 +157,14 @@ def call_openrouter(messages, role='guest', model=None):
 
     return {
         'success': False,
-        'reply': "🙏 I'm having trouble connecting right now. Please try again in a moment!",
-        'error': 'All models failed',
+        'reply':   "🙏 I'm having trouble connecting right now. Please try again in a moment!",
+        'error':   'All models failed',
     }
 
 
-# ──────────────────────────────────────────────────────────────
-# HELPERS
-# ──────────────────────────────────────────────────────────────
+# ── HELPERS ──────────────────────────────────────────────────────────────────
 
 def build_message_history(session, max_messages=10):
-    """Return last N user/assistant messages as list of dicts."""
     qs = session.messages.filter(
         role__in=['user', 'assistant']
     ).order_by('-created_at')[:max_messages]
@@ -193,3 +174,112 @@ def build_message_history(session, max_messages=10):
 def get_client_ip(request):
     xff = request.META.get('HTTP_X_FORWARDED_FOR')
     return xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR')
+
+
+# ── PHASE 2 — FOOD ITEM GENERATOR ────────────────────────────────────────────
+
+def generate_food_item_structured(user_prompt, vendor_categories=None):
+    """
+    Ask the AI to generate a structured food menu item from a natural-language prompt.
+    Returns a dict: {title, description, category, price, tags} or raises ValueError.
+
+    NOTE: Calls OpenRouter directly with a strict JSON system prompt —
+    does NOT use call_openrouter() so the vendor markdown prompt
+    cannot interfere with JSON output.
+    """
+    category_hint = ""
+    if vendor_categories:
+        names = ", ".join(vendor_categories)
+        category_hint = (
+            f"The vendor already has these categories: {names}. "
+            "Reuse an existing one if it fits, otherwise suggest a new one."
+        )
+
+    system_prompt = f"""You are a professional food menu consultant helping a restaurant vendor.
+When given a food idea, respond ONLY with a single valid JSON object — no markdown fences, no extra text.
+Required keys:
+{{
+  "title":       "Short appealing dish name (3-6 words max)",
+  "description": "1-2 sentence mouth-watering description",
+  "category":    "Best-fit category name (e.g. Starters, Main Course, Desserts, Beverages, Snacks)",
+  "price":       <suggested numeric price in INR, integer or float>,
+  "tags":        ["tag1", "tag2", "tag3"]
+}}
+{category_hint}
+Prices should be realistic for an Indian online food delivery platform (₹50-₹800 range).
+Tags should be short keywords like "spicy", "vegan", "grilled", "best-seller" etc.
+Return ONLY the JSON object. No explanation, no markdown, no extra text."""
+
+    full_messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user",   "content": user_prompt},
+    ]
+
+    api_key = getattr(settings, 'OPENROUTER_API_KEY', '')
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type":  "application/json",
+        "HTTP-Referer":  getattr(settings, 'SITE_URL', 'https://foodonline.onrender.com'),
+        "X-Title":       "FoodOnline AI Assistant",
+    }
+
+    raw = None
+    for model in ["openrouter/free", "arcee-ai/trinity-large-preview:free"]:
+        try:
+            resp = requests.post(
+                OPENROUTER_API_URL,
+                headers=headers,
+                json={
+                    "model":       model,
+                    "messages":    full_messages,
+                    "max_tokens":  512,
+                    "temperature": 0.3,
+                },
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                raw = resp.json()['choices'][0]['message']['content'].strip()
+                logger.info(f"Food gen OK — model: {model}")
+                break
+            else:
+                logger.error(f"Food gen {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            logger.error(f"Food gen error: {e}")
+            continue
+
+    if not raw:
+        raise ValueError("All models failed")
+
+    # Strip markdown fences if model misbehaves
+    raw = re.sub(r"```(?:json)?", "", raw).strip().strip("`").strip()
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if match:
+            data = json.loads(match.group())
+        else:
+            raise ValueError(f"AI returned non-JSON: {raw[:200]}")
+
+    # Validate
+    required = {"title", "description", "category", "price", "tags"}
+    missing  = required - data.keys()
+    if missing:
+        raise ValueError(f"AI response missing keys: {missing}")
+
+    data["price"] = float(data["price"])
+    if not isinstance(data["tags"], list):
+        data["tags"] = [str(data["tags"])]
+
+    return data
+
+
+def get_vendor_categories(vendor):
+    try:
+        from menu.models import Category
+        return list(
+            Category.objects.filter(vendor=vendor).values_list("category_name", flat=True)
+        )
+    except Exception:
+        return []

@@ -391,3 +391,174 @@
     right:  18px;
   }
 }
+
+
+/* Phase -2  */
+
+/* ═══════════════════════════════════════════════════════════════════
+   PHASE 2 — APPEND THIS TO foodonline_main/static/ai_assistant/css/chatbot.css
+   These styles render the editable AI food-item card inside the chatbot.
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Card wrapper ───────────────────────────────────────────────── */
+.food-gen-card {
+  background: linear-gradient(135deg, #fff9f0 0%, #fff3e0 100%);
+  border: 1.5px solid #f4a435;
+  border-radius: 16px;
+  padding: 16px;
+  margin: 10px 4px;
+  box-shadow: 0 4px 18px rgba(244, 164, 53, 0.18);
+  font-family: inherit;
+  animation: fgcSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes fgcSlideIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+.fgc-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.fgc-icon {
+  font-size: 20px;
+}
+
+.fgc-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b35c00;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Fields ─────────────────────────────────────────────────────── */
+.fgc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  flex: 1;
+}
+
+.fgc-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7a5230;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fgc-hint {
+  font-weight: 400;
+  text-transform: none;
+  color: #aaa;
+  letter-spacing: 0;
+}
+
+.fgc-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid #f4a435;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: #2d2d2d;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  resize: vertical;
+}
+
+.fgc-input:focus {
+  outline: none;
+  border-color: #e07b00;
+  box-shadow: 0 0 0 3px rgba(244, 164, 53, 0.2);
+}
+
+/* ── Side-by-side row ────────────────────────────────────────────── */
+.fgc-row {
+  display: flex;
+  gap: 10px;
+}
+
+.fgc-row .fgc-field {
+  flex: 1;
+}
+
+/* ── Action buttons ─────────────────────────────────────────────── */
+.fgc-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.fgc-btn {
+  flex: 1;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.15s, opacity 0.15s, box-shadow 0.15s;
+}
+
+.fgc-btn:active { transform: scale(0.97); }
+
+.fgc-btn-save {
+  background: linear-gradient(135deg, #f4a435, #e07b00);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(224, 123, 0, 0.35);
+}
+
+.fgc-btn-save:hover:not(:disabled) {
+  box-shadow: 0 5px 16px rgba(224, 123, 0, 0.5);
+  transform: translateY(-1px);
+}
+
+.fgc-btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fgc-btn-discard {
+  background: #fff;
+  color: #c0392b;
+  border: 1.5px solid #e0b8b8;
+}
+
+.fgc-btn-discard:hover {
+  background: #fff5f5;
+  border-color: #c0392b;
+}
+
+/* ── Status messages ────────────────────────────────────────────── */
+.fgc-status {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 18px;
+}
+
+.fgc-status-success { color: #27ae60; }
+.fgc-status-error   { color: #c0392b; }
+
+/* ── Vendor chip override ────────────────────────────────────────── */
+.chip-food-gen {
+  background: linear-gradient(135deg, #f4a435, #e07b00) !important;
+  color: #fff !important;
+  border: none !important;
+  font-weight: 700 !important;
+}
+
+.chip-food-gen:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
