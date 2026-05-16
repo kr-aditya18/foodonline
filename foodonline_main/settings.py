@@ -131,3 +131,58 @@ RAZORPAY_KEY_ID     = config('RAZORPAY_KEY_ID')
 RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET')
 
 OPENROUTER_API_KEY = config('OPENROUTER_API_KEY', default='')
+
+
+# ── Phase 10: Admin email alerts ──────────────────────────────────────────────
+# Add your email here to receive critical error alerts locally too
+ADMINS = [
+    ('FoodOnline Admin', config('ADMIN_EMAIL', default='')),
+]
+MANAGERS = ADMINS
+
+# # ── Phase 10: Rate limit config (override any time) ───────────────────────────
+# AI_RATE_LIMITS = {
+#     'user_per_minute': 10,
+#     'user_per_day':    200,
+#     'guest_per_day':   20,
+# }
+
+AI_RATE_LIMITS = {
+    'user_per_minute': 2,   # change to 2 so you hit it fast
+    'user_per_day':    5,
+    'guest_per_day':   3,
+}
+
+# ── Phase 10: Logging (local dev) ────────────────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {name} — {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '[{levelname}] {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class':     'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'ai_assistant': {
+            'handlers':  ['console'],
+            'level':     'DEBUG',
+            'propagate': False,
+        },
+        'django': {
+            'handlers':  ['console'],
+            'level':     'WARNING',
+            'propagate': True,
+        },
+    },
+}

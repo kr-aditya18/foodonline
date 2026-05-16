@@ -67,6 +67,13 @@ def chat_api(request):
 
     user = request.user
     role = get_user_role(user)
+    ip   = get_client_ip(request)
+
+    # ── Rate limiting (Phase 10) ────────────────────────────
+    from .utils import check_rate_limit
+    allowed, rate_msg = check_rate_limit(user=user, ip=ip)
+    if not allowed:
+        return JsonResponse({'success': False, 'error': rate_msg, 'rate_limited': True}, status=429)
 
     # ── Authenticated user ──────────────────────────────────
     if user.is_authenticated:
@@ -75,7 +82,11 @@ def chat_api(request):
         ChatMessage.objects.create(session=session, role='user', content=user_message)
 
         history = build_message_history(session)
-        result  = call_openrouter(history, role=role)
+        result  = call_openrouter(
+            history, role=role,
+            user=user, ip=ip, session_key=session.session_key,
+            feature='chat', user_message=user_message,
+        )
         ai_reply = result['reply']
 
         ChatMessage.objects.create(session=session, role='assistant', content=ai_reply)
@@ -88,7 +99,10 @@ def chat_api(request):
         })
 
     # ── Guest user (no DB session) ──────────────────────────
-    result    = call_openrouter([{"role": "user", "content": user_message}], role='guest')
+    result    = call_openrouter(
+        [{"role": "user", "content": user_message}], role='guest',
+        ip=ip, feature='chat', user_message=user_message,
+    )
     ai_reply  = result['reply']
     guest_key = client_key or generate_session_key()
 

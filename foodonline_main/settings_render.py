@@ -150,3 +150,99 @@ CSRF_COOKIE_SECURE                = True
 CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SAMESITE = 'Lax'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
+
+# ── Phase 10: Admin email alerts (production) ────────────────────────────────
+ADMINS = [
+    ('FoodOnline Admin', os.environ.get('ADMIN_EMAIL', '')),
+]
+MANAGERS = ADMINS
+
+# ── Phase 10: Rate limits (production — slightly tighter) ────────────────────
+AI_RATE_LIMITS = {
+    'user_per_minute': 10,
+    'user_per_day':    200,
+    'guest_per_day':   20,
+}
+
+# ── Phase 10: Logging (production — file + console + email on ERROR) ─────────
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {name} {process:d} {thread:d} — {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '[{levelname}] {asctime} {name} — {message}',
+            'style': '{',
+        },
+    },
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+    },
+    'handlers': {
+        # Render log dashboard
+        'console': {
+            'class':     'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        # Rotating file — 5 MB max, keep 5 backups
+        'ai_file': {
+            'class':       'logging.handlers.RotatingFileHandler',
+            'filename':    os.path.join(LOGS_DIR, 'ai_assistant.log'),
+            'maxBytes':    5 * 1024 * 1024,
+            'backupCount': 5,
+            'formatter':   'verbose',
+            'encoding':    'utf-8',
+        },
+        'django_file': {
+            'class':       'logging.handlers.RotatingFileHandler',
+            'filename':    os.path.join(LOGS_DIR, 'django.log'),
+            'maxBytes':    5 * 1024 * 1024,
+            'backupCount': 3,
+            'formatter':   'verbose',
+            'encoding':    'utf-8',
+        },
+        # Email ADMINS on ERROR and above (uses your Brevo SMTP)
+        'mail_admins': {
+            'class':       'django.utils.log.AdminEmailHandler',
+            'filters':     ['require_debug_false'],
+            'formatter':   'verbose',
+            'level':       'ERROR',
+            'include_html': True,
+        },
+    },
+    'loggers': {
+        'ai_assistant': {
+            'handlers':  ['console', 'ai_file', 'mail_admins'],
+            'level':     'DEBUG',
+            'propagate': False,
+        },
+        'django': {
+            'handlers':  ['console', 'django_file'],
+            'level':     'WARNING',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers':  ['mail_admins', 'django_file'],
+            'level':     'ERROR',
+            'propagate': False,
+        },
+        'django.core.mail': {
+            'handlers':  ['console'],
+            'level':     'DEBUG',
+            'propagate': True,
+        },
+        'accounts.utils': {
+            'handlers':  ['console', 'django_file'],
+            'level':     'DEBUG',
+            'propagate': True,
+        },
+    },
+}

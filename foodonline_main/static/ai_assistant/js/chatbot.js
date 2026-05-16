@@ -586,6 +586,11 @@
     .then(function (data) {
       setTyping(false);
       sendBtn.disabled = false;
+      if (data.rate_limited) {
+        appendMessage('bot', data.error || '⏳ Too many messages. Please slow down!');
+        showRoleChips();
+        return;
+      }
       if (data.success) {
         if (data.session_key) {
           sessionKey = data.session_key;

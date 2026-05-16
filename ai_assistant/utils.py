@@ -1,8 +1,12 @@
 import uuid
+import time
 import requests
 import logging
 from django.conf import settings
-import json, re
+from django.utils import timezone
+from datetime import timedelta
+import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +84,134 @@ def get_system_prompt(role):
     }.get(role, GUEST_SYSTEM_PROMPT)
 
 
+# ══════════════════════════════════════════════════════════════════
+# PHASE 10 — RATE LIMITING
+# ══════════════════════════════════════════════════════════════════
+
+# Limits — tweak these any time in settings.py via AI_RATE_LIMITS
+DEFAULT_RATE_LIMITS = {
+    'user_per_minute': 10,    # authenticated users: max 10 msgs/min
+    'user_per_day':    200,   # authenticated users: max 200 msgs/day
+    'guest_per_day':   20,    # guests (by IP):      max 20 msgs/day
+}
+
+
+def _get_limits():
+    return getattr(settings, 'AI_RATE_LIMITS', DEFAULT_RATE_LIMITS)
+
+
+def check_rate_limit(user=None, ip=None):
+    """
+    Check if the request is within rate limits.
+    Returns (allowed: bool, reason: str)
+
+    Uses RateLimitBucket model — no Redis needed.
+    Expired buckets are reset automatically on next hit.
+    """
+    from .models import RateLimitBucket
+
+    limits  = _get_limits()
+    now     = timezone.now()
+
+    if user and user.is_authenticated:
+        identifier = f"user_{user.id}"
+
+        # ── Per-minute check ────────────────────────────────────
+        minute_limit = limits.get('user_per_minute', 10)
+        bucket_min, _ = RateLimitBucket.objects.get_or_create(
+            identifier=identifier,
+            window='minute',
+            defaults={'count': 0, 'reset_at': now + timedelta(minutes=1)},
+        )
+        if now >= bucket_min.reset_at:
+            # Window expired — reset
+            bucket_min.count    = 0
+            bucket_min.reset_at = now + timedelta(minutes=1)
+
+        bucket_min.count += 1
+        bucket_min.save(update_fields=['count', 'reset_at'])
+
+        if bucket_min.count > minute_limit:
+            secs_left = max(0, int((bucket_min.reset_at - now).total_seconds()))
+            return False, f"⏳ You're sending messages too quickly. Please wait {secs_left}s before trying again."
+
+        # ── Per-day check ───────────────────────────────────────
+        day_limit = limits.get('user_per_day', 200)
+        bucket_day, _ = RateLimitBucket.objects.get_or_create(
+            identifier=identifier,
+            window='day',
+            defaults={'count': 0, 'reset_at': now + timedelta(days=1)},
+        )
+        if now >= bucket_day.reset_at:
+            bucket_day.count    = 0
+            bucket_day.reset_at = now + timedelta(days=1)
+
+        bucket_day.count += 1
+        bucket_day.save(update_fields=['count', 'reset_at'])
+
+        if bucket_day.count > day_limit:
+            return False, "📅 You've reached your daily AI message limit. It resets at midnight — come back tomorrow!"
+
+        return True, ''
+
+    else:
+        # ── Guest: per-day by IP ────────────────────────────────
+        if not ip:
+            return True, ''   # no IP = can't rate-limit, let through
+
+        guest_limit = limits.get('guest_per_day', 20)
+        identifier  = f"ip_{ip}"
+        bucket, _ = RateLimitBucket.objects.get_or_create(
+            identifier=identifier,
+            window='day',
+            defaults={'count': 0, 'reset_at': now + timedelta(days=1)},
+        )
+        if now >= bucket.reset_at:
+            bucket.count    = 0
+            bucket.reset_at = now + timedelta(days=1)
+
+        bucket.count += 1
+        bucket.save(update_fields=['count', 'reset_at'])
+
+        if bucket.count > guest_limit:
+            return False, "🔐 You've used all your free guest messages today. Log in for more!"
+
+        return True, ''
+
+
+# ══════════════════════════════════════════════════════════════════
+# PHASE 10 — INTERACTION LOGGER
+# ══════════════════════════════════════════════════════════════════
+
+def log_interaction(
+    user=None, role='guest', ip=None, session_key='',
+    feature='chat', user_message='', ai_reply='',
+    model_used='', success=True, error_message='',
+    response_time_ms=0,
+):
+    """
+    Write one row to AIInteractionLog.
+    Non-blocking — errors are swallowed so a log failure never breaks the chat.
+    """
+    try:
+        from .models import AIInteractionLog
+        AIInteractionLog.objects.create(
+            user             = user if (user and user.is_authenticated) else None,
+            role             = role,
+            ip_address       = ip,
+            session_key      = session_key or '',
+            feature          = feature,
+            user_message     = (user_message or '')[:2000],   # cap length
+            ai_reply         = (ai_reply or '')[:2000],
+            model_used       = model_used or '',
+            success          = success,
+            error_message    = (error_message or '')[:500],
+            response_time_ms = response_time_ms,
+        )
+    except Exception as e:
+        logger.warning(f"[AILog] Failed to write interaction log: {e}")
+
+
 # ── OPENROUTER CLIENT ────────────────────────────────────────────────────────
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -93,21 +225,28 @@ FREE_MODELS = [
 ]
 
 
-def call_openrouter(messages, role='guest', model=None):
+def call_openrouter(
+    messages, role='guest', model=None,
+    # Phase 10 logging context — pass these from views
+    user=None, ip=None, session_key='', feature='chat', user_message='',
+):
     """
     Send messages to OpenRouter and return AI reply.
     Injects a role-based system prompt automatically.
+    Logs every call to AIInteractionLog (Phase 10).
 
     Returns: {'success': bool, 'reply': str, 'error': str|None}
     """
     api_key = getattr(settings, 'OPENROUTER_API_KEY', '')
     if not api_key:
         logger.warning("OPENROUTER_API_KEY not set.")
-        return {
-            'success': False,
-            'reply':   "⚙️ AI assistant is not configured yet. Please set the OPENROUTER_API_KEY environment variable.",
-            'error':   'API key not configured',
-        }
+        _reply = "⚙️ AI assistant is not configured yet. Please set the OPENROUTER_API_KEY environment variable."
+        log_interaction(
+            user=user, role=role, ip=ip, session_key=session_key,
+            feature=feature, user_message=user_message, ai_reply=_reply,
+            success=False, error_message='API key not configured',
+        )
+        return {'success': False, 'reply': _reply, 'error': 'API key not configured'}
 
     system_prompt = get_system_prompt(role)
     full_messages = [{"role": "system", "content": system_prompt}] + messages
@@ -120,6 +259,7 @@ def call_openrouter(messages, role='guest', model=None):
     }
 
     models_to_try = ([model] if model else []) + FREE_MODELS
+    start_time    = time.time()
 
     for attempt_model in models_to_try:
         try:
@@ -141,18 +281,26 @@ def call_openrouter(messages, role='guest', model=None):
                     logger.warning(f"No 'choices' in response from {attempt_model}: {data}")
                     continue
                 content = data['choices'][0]['message'].get('content') or ''
-                reply = content.strip()
+                reply   = content.strip()
                 if not reply:
                     logger.warning(f"Empty content from {attempt_model}, trying next…")
                     continue
-                actual_model = data.get('model', attempt_model)
-                logger.info(f"OpenRouter OK — requested: {attempt_model} | actual: {actual_model}")
+
+                actual_model  = data.get('model', attempt_model)
+                elapsed_ms    = int((time.time() - start_time) * 1000)
+                logger.info(f"OpenRouter OK — model: {actual_model} | {elapsed_ms}ms")
+
+                log_interaction(
+                    user=user, role=role, ip=ip, session_key=session_key,
+                    feature=feature, user_message=user_message, ai_reply=reply,
+                    model_used=actual_model, success=True,
+                    response_time_ms=elapsed_ms,
+                )
                 return {'success': True, 'reply': reply, 'error': None}
 
             elif resp.status_code == 429:
                 logger.warning(f"Rate limit on {attempt_model}, trying next…")
                 continue
-
             else:
                 logger.error(f"OpenRouter {resp.status_code}: {resp.text[:200]}")
                 continue
@@ -161,14 +309,21 @@ def call_openrouter(messages, role='guest', model=None):
             logger.error(f"Timeout on {attempt_model}")
             continue
         except requests.exceptions.RequestException as e:
-            logger.error(f"Request error: {e}")
+            logger.error(f"Request error on {attempt_model}: {e}")
             continue
 
-    return {
-        'success': False,
-        'reply':   "🙏 I'm having trouble connecting right now. Please try again in a moment!",
-        'error':   'All models failed',
-    }
+    elapsed_ms = int((time.time() - start_time) * 1000)
+    _reply     = "🙏 I'm having trouble connecting right now. Please try again in a moment!"
+    logger.error(f"[AI] All models failed after {elapsed_ms}ms — role:{role} feature:{feature}")
+
+    log_interaction(
+        user=user, role=role, ip=ip, session_key=session_key,
+        feature=feature, user_message=user_message, ai_reply=_reply,
+        model_used='all_failed', success=False,
+        error_message='All models failed',
+        response_time_ms=elapsed_ms,
+    )
+    return {'success': False, 'reply': _reply, 'error': 'All models failed'}
 
 
 # ── HELPERS ──────────────────────────────────────────────────────────────────
@@ -185,16 +340,12 @@ def get_client_ip(request):
     return xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR')
 
 
-# ── PHASE 2 — FOOD ITEM GENERATOR ────────────────────────────────────────────
+# ── FOOD ITEM GENERATOR ──────────────────────────────────────────────────────
 
 def generate_food_item_structured(user_prompt, vendor_categories=None):
     """
     Ask the AI to generate a structured food menu item from a natural-language prompt.
     Returns a dict: {title, description, category, price, tags} or raises ValueError.
-
-    NOTE: Calls OpenRouter directly with a strict JSON system prompt —
-    does NOT use call_openrouter() so the vendor markdown prompt
-    cannot interfere with JSON output.
     """
     category_hint = ""
     if vendor_categories:
@@ -233,7 +384,12 @@ Return ONLY the JSON object. No explanation, no markdown, no extra text."""
     }
 
     raw = None
-    for model in ["openrouter/free", "google/gemma-3n-e4b-it:free", "arcee-ai/trinity-large-preview:free", "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"]:
+    for model in [
+        "openrouter/auto",
+        "google/gemma-3n-e4b-it:free",
+        "arcee-ai/trinity-large-preview:free",
+        "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+    ]:
         try:
             resp = requests.post(
                 OPENROUTER_API_URL,
@@ -253,13 +409,12 @@ Return ONLY the JSON object. No explanation, no markdown, no extra text."""
             else:
                 logger.error(f"Food gen {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
-            logger.error(f"Food gen error: {e}")
+            logger.error(f"Food gen error on {model}: {e}")
             continue
 
     if not raw:
         raise ValueError("All models failed")
 
-    # Strip markdown fences if model misbehaves
     raw = re.sub(r"```(?:json)?", "", raw).strip().strip("`").strip()
 
     try:
@@ -271,7 +426,6 @@ Return ONLY the JSON object. No explanation, no markdown, no extra text."""
         else:
             raise ValueError(f"AI returned non-JSON: {raw[:200]}")
 
-    # Validate
     required = {"title", "description", "category", "price", "tags"}
     missing  = required - data.keys()
     if missing:
