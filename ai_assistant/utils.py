@@ -85,10 +85,11 @@ def get_system_prompt(role):
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 FREE_MODELS = [
-    "openrouter/free",
-    "google/gemma-3n-e4b-it:free",
-    "mistralai/mistral-small-3.1-24b-instruct:free",
-    "qwen/qwen3-8b:free",
+    "openrouter/auto",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "microsoft/phi-3-mini-128k-instruct:free",
+    "google/gemma-2-9b-it:free",
+    "mistralai/mistral-7b-instruct:free",
 ]
 
 
