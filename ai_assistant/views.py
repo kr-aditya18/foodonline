@@ -1,11 +1,14 @@
 import json
 import logging
+import base64
+import re
 
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from django.views.decorators.http import require_http_methods
-from .models import ChatSession, ChatMessage, GuestChatLog
+from django.views.decorators.http import require_POST, require_http_methods
+from django.contrib.auth.decorators import login_required
+from django.core.files.base import ContentFile
 
+from .models import ChatSession, ChatMessage, GuestChatLog
 from .utils_phase3 import build_price_comparison_data, format_comparison_for_ai
 from .utils import (
     get_user_role,
@@ -13,6 +16,8 @@ from .utils import (
     call_openrouter,
     build_message_history,
     get_client_ip,
+    generate_food_item_structured,
+    get_vendor_categories,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,15 +64,12 @@ def chat_api(request):
     if user.is_authenticated:
         session = _get_or_create_session(user, role, client_key)
 
-        # Persist user message
         ChatMessage.objects.create(session=session, role='user', content=user_message)
 
-        # Call AI with full history
         history = build_message_history(session)
         result  = call_openrouter(history, role=role)
         ai_reply = result['reply']
 
-        # Persist AI reply
         ChatMessage.objects.create(session=session, role='assistant', content=ai_reply)
 
         return JsonResponse({
@@ -78,8 +80,8 @@ def chat_api(request):
         })
 
     # ── Guest user (no DB session) ──────────────────────────
-    result   = call_openrouter([{"role": "user", "content": user_message}], role='guest')
-    ai_reply = result['reply']
+    result    = call_openrouter([{"role": "user", "content": user_message}], role='guest')
+    ai_reply  = result['reply']
     guest_key = client_key or generate_session_key()
 
     try:
@@ -123,7 +125,7 @@ def clear_session(request):
 
 
 # ──────────────────────────────────────────────────────────────
-# GET HISTORY  (restores chat on page reload)
+# GET HISTORY
 # ──────────────────────────────────────────────────────────────
 
 def get_history(request):
@@ -173,19 +175,64 @@ def _get_or_create_session(user, role, session_key=''):
         mode=role,
         session_key=generate_session_key(),
     )
-    
-## ─────────────────────────────────────────────────────────────────
-##  MERGE THIS INTO ai_assistant/views.py  (add below existing views)
-## ─────────────────────────────────────────────────────────────────
 
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
-import json
 
-from .utils import generate_food_item_structured, get_vendor_categories, get_user_role
+def _save_image_to_food_item(food_item, image_url, slug):
+    """
+    Saves an image to a FoodItem regardless of whether it is:
+      - A base64 DataURL  (data:image/jpeg;base64,/9j/...)  ← from manual upload
+      - A remote HTTP URL (https://image.pollinations.ai/…) ← from AI generation
 
+    Returns True on success, False on failure (non-fatal — item is already saved).
+    """
+    if not image_url:
+        return False
+
+    try:
+        # ── Base64 DataURL (vendor uploaded their own photo) ──────────
+        if image_url.startswith('data:'):
+            # Format: data:<mime>;base64,<data>
+            match = re.match(r'data:(image/\w+);base64,(.+)', image_url, re.DOTALL)
+            if not match:
+                logger.warning(f"Unrecognised DataURL format for {food_item.food_title}")
+                return False
+
+            mime     = match.group(1)                        # e.g. image/jpeg
+            raw_b64  = match.group(2).strip()
+            img_data = base64.b64decode(raw_b64)
+
+            # Derive a sensible extension from the MIME type
+            ext_map  = {'image/jpeg': 'jpg', 'image/png': 'png',
+                        'image/webp': 'webp', 'image/gif': 'gif'}
+            ext      = ext_map.get(mime, 'jpg')
+            filename = f"{slug}.{ext}"
+
+            food_item.image.save(filename, ContentFile(img_data), save=True)
+            logger.info(f"Base64 image saved for '{food_item.food_title}'")
+            return True
+
+        # ── Remote URL (AI-generated via Pollinations / Foodish) ──────
+        import urllib.request
+        req = urllib.request.Request(
+            image_url,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            img_data = resp.read()
+
+        filename = f"{slug}.jpg"
+        food_item.image.save(filename, ContentFile(img_data), save=True)
+        logger.info(f"Remote image saved for '{food_item.food_title}'")
+        return True
+
+    except Exception as e:
+        logger.warning(f"Image save failed for '{food_item.food_title}': {e}")
+        return False
+
+
+# ──────────────────────────────────────────────────────────────
+# GENERATE FOOD ITEM
+# ──────────────────────────────────────────────────────────────
 
 @login_required
 @require_POST
@@ -194,102 +241,141 @@ def generate_food_item_view(request):
     POST /ai/generate-food-item/
     Body: { "prompt": "spicy paneer burger with chipotle sauce" }
     Returns: { success, item: {title, description, category, price, tags} }
-              or { success: false, error: "..." }
     """
     role = get_user_role(request.user)
-    if role != "vendor":
-        return JsonResponse({"success": False, "error": "Only vendors can use this feature."}, status=403)
+    if role != 'vendor':
+        return JsonResponse({'success': False, 'error': 'Only vendors can use this feature.'}, status=403)
 
     try:
-        body = json.loads(request.body)
-        prompt = body.get("prompt", "").strip()
+        body   = json.loads(request.body)
+        prompt = body.get('prompt', '').strip()
     except (json.JSONDecodeError, AttributeError):
-        return JsonResponse({"success": False, "error": "Invalid request body."}, status=400)
+        return JsonResponse({'success': False, 'error': 'Invalid request body.'}, status=400)
 
     if not prompt:
-        return JsonResponse({"success": False, "error": "Please describe the food item."}, status=400)
+        return JsonResponse({'success': False, 'error': 'Please describe the food item.'}, status=400)
 
-    # Get this vendor's existing categories for smarter suggestions
     try:
         from vendor.models import Vendor
-        vendor = Vendor.objects.get(user=request.user)
+        vendor     = Vendor.objects.get(user=request.user)
         categories = get_vendor_categories(vendor)
     except Exception:
-        vendor = None
+        vendor     = None
         categories = []
 
     try:
         item = generate_food_item_structured(prompt, vendor_categories=categories)
-        return JsonResponse({"success": True, "item": item})
+        return JsonResponse({'success': True, 'item': item})
     except ValueError as e:
-        return JsonResponse({"success": False, "error": str(e)}, status=500)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
     except Exception as e:
-        return JsonResponse({"success": False, "error": f"AI error: {str(e)}"}, status=500)
+        return JsonResponse({'success': False, 'error': f'AI error: {str(e)}'}, status=500)
 
+
+# ──────────────────────────────────────────────────────────────
+# SAVE FOOD ITEM
+# ──────────────────────────────────────────────────────────────
 
 @login_required
 @require_POST
 def save_food_item_view(request):
     """
     POST /ai/save-food-item/
-    Body: { title, description, category, price, tags }
-    Saves the item to menu.FoodItem for the logged-in vendor.
-    Returns: { success, food_item_id, message }
+    Accepts image_url as either:
+      - A base64 DataURL  (vendor uploaded their own photo)
+      - A remote HTTP URL (AI-generated image)
+      - Empty string      (no image)
     """
     role = get_user_role(request.user)
-    if role != "vendor":
-        return JsonResponse({"success": False, "error": "Only vendors can use this feature."}, status=403)
+    if role != 'vendor':
+        return JsonResponse({'success': False, 'error': 'Only vendors can use this feature.'}, status=403)
 
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, AttributeError):
-        return JsonResponse({"success": False, "error": "Invalid request body."}, status=400)
+        return JsonResponse({'success': False, 'error': 'Invalid request body.'}, status=400)
 
-    required_fields = ["title", "description", "category", "price"]
-    for field in required_fields:
-        if not body.get(field):
-            return JsonResponse({"success": False, "error": f"Missing field: {field}"}, status=400)
+    # Validate required fields
+    for field in ['title', 'description', 'category', 'price']:
+        if not body.get(field) and body.get(field) != 0:
+            return JsonResponse({'success': False, 'error': f'Missing required field: {field}'}, status=400)
 
     try:
         from vendor.models import Vendor
         from menu.models import Category, FoodItem
+        from django.utils.text import slugify
 
         vendor = Vendor.objects.get(user=request.user)
 
-        # Get or create category
-        category_name = body["category"].strip()
-        category, _ = Category.objects.get_or_create(
+        # ── Category: find existing or create ──────────────────
+        category_name = body['category'].strip()
+        category = Category.objects.filter(
             vendor=vendor,
             category_name__iexact=category_name,
-            defaults={"category_name": category_name}
+        ).first()
+
+        if not category:
+            base_slug = slugify(category_name)
+            slug      = base_slug
+            counter   = 1
+            while Category.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            category = Category.objects.create(
+                vendor=vendor,
+                category_name=category_name,
+                slug=slug,
+            )
+
+        # ── FoodItem slug ───────────────────────────────────────
+        food_title = body['title'].strip()
+        base_slug  = slugify(food_title)
+        slug       = base_slug
+        counter    = 1
+        while FoodItem.objects.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+
+        # ── Create FoodItem (no image yet) ──────────────────────
+        food_item = FoodItem.objects.create(
+            vendor       = vendor,
+            category     = category,
+            food_title   = food_title,
+            description  = body['description'].strip(),
+            price        = float(body['price']),
+            slug         = slug,
+            is_available = True,
         )
 
-        # Create the food item
-        food_item = FoodItem.objects.create(
-            vendor=vendor,
-            category=category,
-            food_title=body["title"].strip(),
-            description=body["description"].strip(),
-            price=float(body["price"]),
-            is_available=True,
-        )
+        # ── Save image (base64 OR remote URL) ───────────────────
+        image_url = body.get('image_url', '').strip()
+        has_image = _save_image_to_food_item(food_item, image_url, slug)
 
         return JsonResponse({
-            "success": True,
-            "food_item_id": food_item.id,
-            "message": f"✅ '{food_item.food_title}' saved to your menu!",
+            'success':      True,
+            'food_item_id': food_item.id,
+            'message':      f"✅ '{food_item.food_title}' saved to your menu!",
+            'has_image':    has_image,
         })
 
     except Exception as e:
-        return JsonResponse({"success": False, "error": f"Save failed: {str(e)}"}, status=500)
-    
+        logger.error(f"Save food item error: {e}")
+        return JsonResponse({'success': False, 'error': f'Save failed: {str(e)}'}, status=500)
+
+
+# ──────────────────────────────────────────────────────────────
+# PRICE COMPARISON
+# ──────────────────────────────────────────────────────────────
 
 @login_required
-@require_http_methods(["GET"])
+@require_http_methods(['GET'])
 def compare_pricing_view(request):
     """
     GET /ai/compare-pricing/
     Returns price comparison data + AI summary for the logged-in vendor.
+
+    Always returns success:true so the frontend can show the table even
+    when the AI summary call fails — the summary field will explain why.
     """
     role = get_user_role(request.user)
     if role != 'vendor':
@@ -301,20 +387,39 @@ def compare_pricing_view(request):
     except Vendor.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Vendor profile not found.'}, status=404)
 
+    # ── Build comparison data ───────────────────────────────────
     try:
         comparison_data = build_price_comparison_data(vendor)
     except Exception as e:
-        logger.error(f"Price comparison error: {e}")
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        logger.error(f"Price comparison build error: {e}")
+        return JsonResponse({'success': False, 'error': f'Could not load your pricing data: {str(e)}'}, status=500)
 
-    if not comparison_data['items']:
+    # ── No menu items yet ───────────────────────────────────────
+    if not comparison_data.get('items'):
         return JsonResponse({
             'success': True,
-            'summary': "You don't have any menu items yet. Add some items first!",
+            'summary': "You don't have any menu items yet. Add some items and come back!",
             'data':    comparison_data,
         })
 
-    # Ask AI to summarize
+    # ── No competitor data at all ───────────────────────────────
+    has_competitor_data = any(
+        item.get('competitor_avg') is not None
+        for item in comparison_data['items']
+    )
+    if not has_competitor_data:
+        item_count = len(comparison_data['items'])
+        return JsonResponse({
+            'success': True,
+            'summary': (
+                f"📋 You have {item_count} menu item{'s' if item_count != 1 else ''}. "
+                "No other vendors in your city have matching items yet, so there's nothing to compare. "
+                "Keep building your menu — comparison data will appear as more vendors join your area!"
+            ),
+            'data': comparison_data,
+        })
+
+    # ── Ask AI to summarise ─────────────────────────────────────
     formatted = format_comparison_for_ai(comparison_data)
     ai_prompt = f"""You are a restaurant pricing consultant.
 Here is the price comparison data for a vendor:
@@ -323,18 +428,38 @@ Here is the price comparison data for a vendor:
 
 Give a SHORT, actionable summary (max 5 bullet points) with:
 - Which items are priced well
-- Which items are too expensive vs market
+- Which items are too expensive vs the market
 - Which items are priced too low (opportunity to increase)
 - 1-2 specific recommendations
 
 Be concise, friendly, use ₹ symbol. No markdown headers."""
 
     result = call_openrouter(
-        [{"role": "user", "content": ai_prompt}],
-        role='vendor'
+        [{'role': 'user', 'content': ai_prompt}],
+        role='vendor',
     )
 
-    summary = result['reply'] if result['success'] else "⚠️ AI summary unavailable, but here's the raw data:"
+    if result['success'] and result['reply']:
+        summary = result['reply']
+    else:
+        # AI failed — build a plain-text summary from the raw data ourselves
+        # so the vendor still gets something useful
+        expensive = [i['title'] for i in comparison_data['items'] if i.get('status') == 'expensive']
+        cheap     = [i['title'] for i in comparison_data['items'] if i.get('status') == 'cheap']
+        ok        = [i['title'] for i in comparison_data['items'] if i.get('status') == 'competitive']
+
+        lines = ['📊 Pricing summary (AI unavailable — showing raw analysis):']
+        if ok:
+            lines.append(f"✅ Competitively priced: {', '.join(ok)}")
+        if expensive:
+            lines.append(f"🔴 Priced above market: {', '.join(expensive)} — consider reducing slightly")
+        if cheap:
+            lines.append(f"🟡 Priced below market: {', '.join(cheap)} — you may have room to increase")
+        if not (ok or expensive or cheap):
+            lines.append("No matching competitor items found for detailed analysis.")
+
+        summary = '\n'.join(lines)
+        logger.warning(f"AI summary failed for vendor {vendor.id}, using fallback. Error: {result.get('error')}")
 
     return JsonResponse({
         'success': True,

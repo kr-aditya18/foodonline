@@ -281,6 +281,17 @@
   color:      var(--foi-white);
 }
 
+/* Post-card suggestion chips — slightly warmer tint to stand out */
+.foi-chip.foi-chip-suggestion {
+  background: #fff8f0;
+  border-color: #f4a435;
+  color: #b35c00;
+}
+.foi-chip.foi-chip-suggestion:hover {
+  background: #f4a435;
+  color: #fff;
+}
+
 /* ── Input Area ─────────────────────────────────────────────── */
 #foi-input-area {
   padding:     10px 12px;
@@ -617,4 +628,210 @@
   color: #888;
   background: #fafafa;
   border-top: 1px solid #f0f0f0;
+}
+
+/* ════════════════════════════════════════════════
+   PHASE 4 — Image Generation
+════════════════════════════════════════════════ */
+
+.fgc-btn-img {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.fgc-btn-img:hover   { opacity: 0.85; }
+.fgc-btn-img:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.fgc-btn-regen {
+  background: #f0f0f0;
+  color: #333;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.fgc-btn-regen:hover { background: #e0e0e0; }
+
+.fgc-img-preview {
+  margin-top: 8px;
+}
+
+.fgc-img-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: #f8f4ff;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #7c3aed;
+}
+
+.fgc-img-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e9d5ff;
+  border-top-color: #7c3aed;
+  border-radius: 50%;
+  animation: foi-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes foi-spin {
+  to { transform: rotate(360deg); }
+}
+
+.fgc-img-wrapper {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e9d5ff;
+  background: #faf5ff;
+}
+
+.fgc-img-result {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 220px;
+  object-fit: cover;
+}
+
+.fgc-img-caption {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #7c3aed;
+  font-weight: 500;
+}
+
+.fgc-img-actions {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px 10px;
+}
+
+.fgc-img-download {
+  font-size: 11px;
+  color: #7c3aed;
+  text-decoration: none;
+  padding: 4px 8px;
+  border: 1px solid #e9d5ff;
+  border-radius: 6px;
+  background: #fff;
+  transition: background 0.2s;
+}
+
+.fgc-img-download:hover { background: #f3e8ff; }
+
+.fgc-img-error {
+  padding: 10px 12px;
+  background: #fff0f0;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #e31837;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fgc-btn-retry-img {
+  background: #e31837;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.fgc-btn-retry-img:hover { opacity: 0.85; }
+
+
+/* ── Phase 4 Updated Styles ── */
+.fgc-img-auto {
+  margin-bottom: 8px;
+}
+
+.fgc-img-btns {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.fgc-btn-upload-label {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f0f7ff;
+  color: #1a6bbf;
+  transition: all 0.2s;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.fgc-btn-upload-label:hover {
+  background: #1a6bbf;
+  color: #fff;
+  border-color: #1a6bbf;
+}
+
+/* Caption variant shown after a manual upload */
+.fgc-img-caption--upload {
+  color: #27ae60;
+}
+
+.fgc-btn-skip-img {
+  background: #f5f5f5;
+  color: #888;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fgc-btn-skip-img:hover {
+  background: #ffe0e0;
+  color: #e31837;
+  border-color: #e31837;
+}
+
+.fgc-img-skipped {
+  padding: 10px 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #888;
+  border: 1px dashed #ddd;
+  margin-bottom: 8px;
+}
+
+.fgc-img-caption {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #7c3aed;
+  font-weight: 500;
+}
+
+/* Green caption after vendor uploads their own photo */
+.fgc-img-caption--upload {
+  color: #27ae60;
 }
