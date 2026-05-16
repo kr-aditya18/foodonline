@@ -86,8 +86,9 @@ OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 FREE_MODELS = [
     "openrouter/free",
-    "arcee-ai/trinity-large-preview:free",
-    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+    "google/gemma-3n-e4b-it:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+    "qwen/qwen3-8b:free",
 ]
 
 
@@ -228,7 +229,7 @@ Return ONLY the JSON object. No explanation, no markdown, no extra text."""
     }
 
     raw = None
-    for model in ["openrouter/free", "arcee-ai/trinity-large-preview:free"]:
+    for model in ["openrouter/free", "google/gemma-3n-e4b-it:free", "arcee-ai/trinity-large-preview:free", "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"]:
         try:
             resp = requests.post(
                 OPENROUTER_API_URL,
@@ -236,8 +237,8 @@ Return ONLY the JSON object. No explanation, no markdown, no extra text."""
                 json={
                     "model":       model,
                     "messages":    full_messages,
-                    "max_tokens":  512,
-                    "temperature": 0.3,
+                    "max_tokens":  800,
+                    "temperature": 0.2,
                 },
                 timeout=30,
             )

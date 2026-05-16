@@ -451,16 +451,20 @@
 // Phase - 2
 
   /* ── Trigger keywords ── */
-  var FOOD_GEN_TRIGGERS = [
-    "add food", "add item", "new item", "create item", "generate item",
-    "add dish", "new dish", "create dish", "menu item", "add to menu",
-    "create food", "generate food", "i want to add", "add a food",
+  var SKIP_TRIGGERS = [
+    "compare", "pricing", "price compare", "competitor",
+    "improve", "suggestion", "tip", "help", "how to",
+    "what is", "kya hai", "kaise", "hello", "hi ", "hey",
+    "thank", "okay", "ok ", "great", "good", "nice",
   ];
 
   function isFoodGenRequest(text) {
+    if (currentRole !== 'vendor') return false;
     var lower = text.toLowerCase();
-    return FOOD_GEN_TRIGGERS.some(function (kw) { return lower.includes(kw); });
+    var isSkip = SKIP_TRIGGERS.some(function (kw) { return lower.includes(kw); });
+    return !isSkip;
   }
+
 
   /* ── Override sendMessage to intercept food-gen requests ── */
   var _originalSendMessage = sendMessage;

@@ -44,7 +44,7 @@
                                     <td class="text-left">{{ forloop.counter }}</td>
 
                                     <td class="text-left">
-                                        <img src="{{food.image.url}}" 
+                                        <img src="{% if food.image %}{{food.image.url}}{% else %}https://placehold.co/40x40?text=Food{% endif %}" 
                                              alt="Food Image" 
                                              width="40">
                                     </td>
