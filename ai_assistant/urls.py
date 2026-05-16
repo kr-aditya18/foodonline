@@ -12,4 +12,5 @@ urlpatterns = [
     path('recommend/',           views.recommend_food_view,     name='ai_recommend'),
     path('orders/',              views.order_tracking_view,     name='ai_orders'),
     path('reorder/',             views.reorder_suggestions_view, name='ai_reorder'),
+    path('nearby/',              views.nearby_restaurants_view,  name='ai_nearby'),
 ]

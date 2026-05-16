@@ -608,3 +608,29 @@ def reorder_suggestions_view(request):
         })
 
     return JsonResponse({'success': True, 'items': suggestions})
+
+
+# ──────────────────────────────────────────────────────────────
+# PHASE 6 — NEARBY RESTAURANT DISCOVERY
+# ──────────────────────────────────────────────────────────────
+
+@require_http_methods(['GET'])
+def nearby_restaurants_view(request):
+    """
+    GET /ai/nearby/
+    Returns approved vendors near the customer.
+    Works for both authenticated and guest users.
+    """
+    from .customer_utils import get_nearby_vendors
+
+    user    = request.user if request.user.is_authenticated else None
+    vendors = get_nearby_vendors(user, limit=6)
+
+    if not vendors:
+        return JsonResponse({
+            'success': True,
+            'message': "No restaurants found yet. Check back soon — more vendors are joining! 🍽️",
+            'vendors': [],
+        })
+
+    return JsonResponse({'success': True, 'vendors': vendors})

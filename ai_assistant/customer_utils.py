@@ -450,3 +450,102 @@ def format_recommendations_for_ai(items: list, intent: dict) -> str:
         )
 
     return "\n".join(lines)
+
+# ══════════════════════════════════════════════════════════════════
+# PHASE 6 — NEARBY RESTAURANT DISCOVERY
+# ══════════════════════════════════════════════════════════════════
+
+def get_nearby_vendors(user, limit=6):
+    """
+    Returns approved vendors sorted by:
+      1. Distance from customer (if customer has GIS location)
+      2. City match (if no GIS location)
+      3. All approved vendors (final fallback)
+    """
+    from vendor.models import Vendor
+    from django.contrib.gis.db.models.functions import Distance
+    from django.contrib.gis.measure import D
+
+    base_qs = Vendor.objects.filter(
+        is_approved=True
+    ).select_related('user_profile', 'user')
+
+    # ── Get customer location ────────────────────────────────────
+    customer_location = None
+    customer_city     = None
+    if user and user.is_authenticated:
+        try:
+            profile = UserProfile.objects.get(user=user)
+            customer_city     = profile.city
+            customer_location = profile.location
+        except UserProfile.DoesNotExist:
+            pass
+
+    results = []
+
+    # ── Strategy 1: GIS distance ─────────────────────────────────
+    if customer_location:
+        vendors = (
+            base_qs
+            .filter(user_profile__location__isnull=False)
+            .annotate(distance=Distance('user_profile__location', customer_location))
+            .order_by('distance')[:limit]
+        )
+        for v in vendors:
+            dist_km = round(v.distance.km, 1)
+            dist_str = 'Nearby 📍' if dist_km < 1 else f'{dist_km} km away'
+            results.append(_serialize_vendor(v, distance_str=dist_str))
+
+    # ── Strategy 2: City match fallback ──────────────────────────
+    if not results and customer_city:
+        vendors = base_qs.filter(
+            user_profile__city__icontains=customer_city.strip()
+        )[:limit]
+        for v in vendors:
+            results.append(_serialize_vendor(v, distance_str=f'In {customer_city}'))
+
+    # ── Strategy 3: All approved vendors ─────────────────────────
+    if not results:
+        vendors = base_qs.order_by('-created_at')[:limit]
+        for v in vendors:
+            results.append(_serialize_vendor(v, distance_str=''))
+
+    return results
+
+
+def _serialize_vendor(vendor, distance_str=''):
+    """Serialise a Vendor instance to a JSON-safe dict."""
+    from menu.models import Category
+
+    # Cover photo from user_profile
+    cover_url = None
+    try:
+        if vendor.user_profile.cover_photo:
+            cover_url = vendor.user_profile.cover_photo.url
+    except Exception:
+        pass
+
+    # Profile picture as fallback
+    profile_url = None
+    try:
+        if vendor.user_profile.profile_picture:
+            profile_url = vendor.user_profile.profile_picture.url
+    except Exception:
+        pass
+
+    # Cuisine tags — top 4 category names for this vendor
+    categories = list(
+        Category.objects.filter(vendor=vendor)
+        .values_list('category_name', flat=True)[:4]
+    )
+
+    return {
+        'id':           vendor.id,
+        'name':         vendor.vendor_name,
+        'slug':         vendor.vendor_slug,
+        'cover_url':    cover_url,
+        'profile_url':  profile_url,
+        'city':         vendor.user_profile.city or '',
+        'distance_str': distance_str,
+        'categories':   categories,
+    }

@@ -323,7 +323,7 @@
     customer: {
       label:   'Customer',
       welcome: "🍕 Hey there, foodie! Tell me what you're craving or how you're feeling and I'll find the perfect meal for you. What sounds good today?",
-      chips:   ["I'm feeling spicy 🌶️", "Something healthy 🥗", "Track my orders 📦", "Reorder favourites 🔄"],
+      chips:   ["I'm feeling spicy 🌶️", "Something healthy 🥗", "Restaurants near me 🗺️", "Track my orders 📦"],
     },
     guest: {
       label:   'Guest',
@@ -474,6 +474,12 @@
     'my usual', 'what i ordered', 'order my usual', 'reorder favourites',
     'order favourites',
   ];
+  var NEARBY_TRIGGERS = [
+    'nearby', 'near me', 'restaurants near', 'find restaurant',
+    'show restaurant', 'what restaurant', 'restaurants around',
+    'food near', 'places near', 'find food', 'discover restaurant',
+    'browse restaurant', 'all restaurant', 'available restaurant',
+  ];
 
   function isOrderTrackRequest(text) {
     if (currentRole !== 'customer') return false;
@@ -484,6 +490,11 @@
     if (currentRole !== 'customer') return false;
     var lower = text.toLowerCase();
     return REORDER_TRIGGERS.some(function (kw) { return lower.indexOf(kw) !== -1; });
+  }
+  function isNearbyRequest(text) {
+    if (currentRole === 'vendor') return false;
+    var lower = text.toLowerCase();
+    return NEARBY_TRIGGERS.some(function (kw) { return lower.indexOf(kw) !== -1; });
   }
   function isFoodGenRequest(text) {
     if (currentRole !== 'vendor') return false;
@@ -535,6 +546,13 @@
       appendMessage('user', text);
       suggsEl.style.display = 'none';
       triggerReorderSuggestions();
+      return;
+    }
+    if (isNearbyRequest(text)) {
+      inputEl.value = ''; inputEl.style.height = 'auto';
+      appendMessage('user', text);
+      suggsEl.style.display = 'none';
+      triggerNearbyRestaurants();
       return;
     }
     if (currentRole === 'customer' && isFoodRecommendRequest(text)) {
@@ -1282,8 +1300,8 @@ function renderPostCardChips(savedTitle, savedCategory) {
     var CUSTOMER_CHIPS = [
       "I'm feeling spicy 🌶️",
       "Something healthy 🥗",
+      "Restaurants near me 🗺️",
       "Track my orders 📦",
-      "Reorder favourites 🔄",
     ];
     var VENDOR_CHIPS = [
       'Generate a food item 🍱',
@@ -1603,7 +1621,93 @@ function renderPostCardChips(savedTitle, savedCategory) {
     }, 500);
   }
 
-  /* ── Start ── */
+  /* ══════════════════════════════════════════════════════════════
+     PHASE 6 — NEARBY RESTAURANT DISCOVERY
+  ══════════════════════════════════════════════════════════════ */
+  function triggerNearbyRestaurants() {
+    setTyping(true);
+    sendBtn.disabled = true;
+
+    fetch('/ai/nearby/', { method: 'GET' })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+    .then(function (res) {
+      setTyping(false);
+      sendBtn.disabled = false;
+
+      if (!res.ok || !res.data.success) {
+        appendMessage('bot', '❌ ' + (res.data.error || 'Could not load restaurants.'));
+        showRoleChips();
+        return;
+      }
+
+      if (!res.data.vendors || !res.data.vendors.length) {
+        appendMessage('bot', res.data.message || "No restaurants found nearby!");
+        showRoleChips();
+        return;
+      }
+
+      appendMessage('bot', '🗺️ Here are the restaurants available for you:');
+      appendVendorCards(res.data.vendors);
+      showRoleChips();
+    })
+    .catch(function () {
+      setTyping(false);
+      sendBtn.disabled = false;
+      appendMessage('bot', '❌ Connection error. Please try again.');
+      showRoleChips();
+    });
+  }
+
+  function appendVendorCards(vendors) {
+    var wrap = document.createElement('div');
+    wrap.className = 'foi-vendor-grid';
+
+    vendors.forEach(function (v) {
+      var card = document.createElement('div');
+      card.className = 'foi-vendor-card';
+
+      /* Cover image — prefer cover_photo, fallback profile_picture, fallback placeholder */
+      var imgHtml;
+      if (v.cover_url) {
+        imgHtml = '<img class="foi-vendor-cover" src="' + escHtml(v.cover_url) + '" alt="' + escHtml(v.name) + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" />'
+                + '<div class="foi-vendor-cover-placeholder" style="display:none">🍽️</div>';
+      } else if (v.profile_url) {
+        imgHtml = '<img class="foi-vendor-cover" src="' + escHtml(v.profile_url) + '" alt="' + escHtml(v.name) + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" />'
+                + '<div class="foi-vendor-cover-placeholder" style="display:none">🍽️</div>';
+      } else {
+        imgHtml = '<div class="foi-vendor-cover-placeholder">🍽️</div>';
+      }
+
+      /* Category tags */
+      var tagsHtml = v.categories.map(function (cat) {
+        return '<span class="foi-vendor-tag">' + escHtml(cat) + '</span>';
+      }).join('');
+
+      /* Distance / city badge */
+      var distHtml = v.distance_str
+        ? '<span class="foi-vendor-dist">📍 ' + escHtml(v.distance_str) + '</span>'
+        : '';
+
+      card.innerHTML = [
+        '<div class="foi-vendor-img-wrap">' + imgHtml + '</div>',
+        '<div class="foi-vendor-body">',
+        '  <div class="foi-vendor-name">' + escHtml(v.name) + '</div>',
+        distHtml,
+        '  <div class="foi-vendor-tags">' + (tagsHtml || '<span class="foi-vendor-tag">Restaurant</span>') + '</div>',
+        '</div>',
+        '<div class="foi-vendor-footer">',
+        '  <a class="foi-vendor-btn" href="/marketplace/' + escHtml(v.slug) + '/" target="_blank">',
+        '    🛒 View Menu',
+        '  </a>',
+        '</div>',
+      ].join('');
+
+      wrap.appendChild(card);
+    });
+
+    msgContainer.insertBefore(wrap, typingEl);
+    scrollBottom();
+  }
   init();
 
 }());
