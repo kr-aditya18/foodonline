@@ -88,11 +88,10 @@ def get_system_prompt(role):
 # PHASE 10 — RATE LIMITING
 # ══════════════════════════════════════════════════════════════════
 
-# Limits — tweak these any time in settings.py via AI_RATE_LIMITS
 DEFAULT_RATE_LIMITS = {
-    'user_per_minute': 10,    # authenticated users: max 10 msgs/min
-    'user_per_day':    200,   # authenticated users: max 200 msgs/day
-    'guest_per_day':   20,    # guests (by IP):      max 20 msgs/day
+    'user_per_minute': 10,
+    'user_per_day':    200,
+    'guest_per_day':   20,
 }
 
 
@@ -101,22 +100,14 @@ def _get_limits():
 
 
 def check_rate_limit(user=None, ip=None):
-    """
-    Check if the request is within rate limits.
-    Returns (allowed: bool, reason: str)
-
-    Uses RateLimitBucket model — no Redis needed.
-    Expired buckets are reset automatically on next hit.
-    """
     from .models import RateLimitBucket
 
-    limits  = _get_limits()
-    now     = timezone.now()
+    limits = _get_limits()
+    now    = timezone.now()
 
     if user and user.is_authenticated:
         identifier = f"user_{user.id}"
 
-        # ── Per-minute check ────────────────────────────────────
         minute_limit = limits.get('user_per_minute', 10)
         bucket_min, _ = RateLimitBucket.objects.get_or_create(
             identifier=identifier,
@@ -124,18 +115,14 @@ def check_rate_limit(user=None, ip=None):
             defaults={'count': 0, 'reset_at': now + timedelta(minutes=1)},
         )
         if now >= bucket_min.reset_at:
-            # Window expired — reset
             bucket_min.count    = 0
             bucket_min.reset_at = now + timedelta(minutes=1)
-
         bucket_min.count += 1
         bucket_min.save(update_fields=['count', 'reset_at'])
-
         if bucket_min.count > minute_limit:
             secs_left = max(0, int((bucket_min.reset_at - now).total_seconds()))
             return False, f"⏳ You're sending messages too quickly. Please wait {secs_left}s before trying again."
 
-        # ── Per-day check ───────────────────────────────────────
         day_limit = limits.get('user_per_day', 200)
         bucket_day, _ = RateLimitBucket.objects.get_or_create(
             identifier=identifier,
@@ -145,19 +132,16 @@ def check_rate_limit(user=None, ip=None):
         if now >= bucket_day.reset_at:
             bucket_day.count    = 0
             bucket_day.reset_at = now + timedelta(days=1)
-
         bucket_day.count += 1
         bucket_day.save(update_fields=['count', 'reset_at'])
-
         if bucket_day.count > day_limit:
             return False, "📅 You've reached your daily AI message limit. It resets at midnight — come back tomorrow!"
 
         return True, ''
 
     else:
-        # ── Guest: per-day by IP ────────────────────────────────
         if not ip:
-            return True, ''   # no IP = can't rate-limit, let through
+            return True, ''
 
         guest_limit = limits.get('guest_per_day', 20)
         identifier  = f"ip_{ip}"
@@ -169,10 +153,8 @@ def check_rate_limit(user=None, ip=None):
         if now >= bucket.reset_at:
             bucket.count    = 0
             bucket.reset_at = now + timedelta(days=1)
-
         bucket.count += 1
         bucket.save(update_fields=['count', 'reset_at'])
-
         if bucket.count > guest_limit:
             return False, "🔐 You've used all your free guest messages today. Log in for more!"
 
@@ -189,10 +171,6 @@ def log_interaction(
     model_used='', success=True, error_message='',
     response_time_ms=0,
 ):
-    """
-    Write one row to AIInteractionLog.
-    Non-blocking — errors are swallowed so a log failure never breaks the chat.
-    """
     try:
         from .models import AIInteractionLog
         AIInteractionLog.objects.create(
@@ -201,7 +179,7 @@ def log_interaction(
             ip_address       = ip,
             session_key      = session_key or '',
             feature          = feature,
-            user_message     = (user_message or '')[:2000],   # cap length
+            user_message     = (user_message or '')[:2000],
             ai_reply         = (ai_reply or '')[:2000],
             model_used       = model_used or '',
             success          = success,
@@ -227,16 +205,8 @@ FREE_MODELS = [
 
 def call_openrouter(
     messages, role='guest', model=None,
-    # Phase 10 logging context — pass these from views
     user=None, ip=None, session_key='', feature='chat', user_message='',
 ):
-    """
-    Send messages to OpenRouter and return AI reply.
-    Injects a role-based system prompt automatically.
-    Logs every call to AIInteractionLog (Phase 10).
-
-    Returns: {'success': bool, 'reply': str, 'error': str|None}
-    """
     api_key = getattr(settings, 'OPENROUTER_API_KEY', '')
     if not api_key:
         logger.warning("OPENROUTER_API_KEY not set.")
@@ -286,8 +256,8 @@ def call_openrouter(
                     logger.warning(f"Empty content from {attempt_model}, trying next…")
                     continue
 
-                actual_model  = data.get('model', attempt_model)
-                elapsed_ms    = int((time.time() - start_time) * 1000)
+                actual_model = data.get('model', attempt_model)
+                elapsed_ms   = int((time.time() - start_time) * 1000)
                 logger.info(f"OpenRouter OK — model: {actual_model} | {elapsed_ms}ms")
 
                 log_interaction(
@@ -343,10 +313,6 @@ def get_client_ip(request):
 # ── FOOD ITEM GENERATOR ──────────────────────────────────────────────────────
 
 def generate_food_item_structured(user_prompt, vendor_categories=None):
-    """
-    Ask the AI to generate a structured food menu item from a natural-language prompt.
-    Returns a dict: {title, description, category, price, tags} or raises ValueError.
-    """
     category_hint = ""
     if vendor_categories:
         names = ", ".join(vendor_categories)
@@ -355,87 +321,141 @@ def generate_food_item_structured(user_prompt, vendor_categories=None):
             "Reuse an existing one if it fits, otherwise suggest a new one."
         )
 
-    system_prompt = f"""You are a professional food menu consultant helping a restaurant vendor.
-When given a food idea, respond ONLY with a single valid JSON object — no markdown fences, no extra text.
-Required keys:
+    system_prompt = f"""You are a food menu consultant. Respond ONLY with a single valid JSON object.
+No markdown, no code fences, no explanation, no extra text before or after.
+Start your response with {{ and end with }}.
+
+Required JSON format:
 {{
-  "title":       "Short appealing dish name (3-6 words max)",
+  "title":       "Short appealing dish name (3-6 words)",
   "description": "1-2 sentence mouth-watering description",
-  "category":    "Best-fit category name (e.g. Starters, Main Course, Desserts, Beverages, Snacks)",
-  "price":       <suggested numeric price in INR, integer or float>,
+  "category":    "Category name e.g. Starters, Main Course, Desserts, Beverages, Snacks",
+  "price":       150,
   "tags":        ["tag1", "tag2", "tag3"]
 }}
+
 {category_hint}
-Prices should be realistic for an Indian online food delivery platform (₹50-₹800 range).
-Tags should be short keywords like "spicy", "vegan", "grilled", "best-seller" etc.
-Return ONLY the JSON object. No explanation, no markdown, no extra text."""
+Prices in INR between 50-800. Tags are short keywords like spicy, vegan, grilled.
+IMPORTANT: Output ONLY the JSON object. Nothing else."""
 
     full_messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user",   "content": user_prompt},
+        {"role": "user",   "content": f"Generate a menu item for: {user_prompt}"},
     ]
 
-    api_key = getattr(settings, 'OPENROUTER_API_KEY', '')
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type":  "application/json",
-        "HTTP-Referer":  getattr(settings, 'SITE_URL', 'https://foodonline.onrender.com'),
-        "X-Title":       "FoodOnline AI Assistant",
-    }
-
     raw = None
-    for model in [
-        "openrouter/auto",
-        "google/gemma-3n-e4b-it:free",
-        "arcee-ai/trinity-large-preview:free",
-        "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-    ]:
+
+    # ── 1. Try Groq first (separate free quota, 14,400 req/day) ─
+    groq_key = getattr(settings, 'GROQ_API_KEY', '')
+    if groq_key:
         try:
-            resp = requests.post(
-                OPENROUTER_API_URL,
-                headers=headers,
-                json={
-                    "model":       model,
-                    "messages":    full_messages,
-                    "max_tokens":  800,
-                    "temperature": 0.2,
+            groq_resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type":  "application/json",
                 },
-                timeout=30,
+                json={
+                    "model":       "llama-3.1-8b-instant",
+                    "messages":    full_messages,
+                    "max_tokens":  400,
+                    "temperature": 0.1,
+                },
+                timeout=20,
             )
-            if resp.status_code == 200:
-                raw = resp.json()['choices'][0]['message']['content'].strip()
-                logger.info(f"Food gen OK — model: {model}")
-                break
+            if groq_resp.status_code == 200:
+                content = groq_resp.json()['choices'][0]['message']['content'].strip()
+                if content:
+                    raw = content
+                    logger.info("Food gen OK — model: groq/llama-3.1-8b-instant")
             else:
-                logger.error(f"Food gen {resp.status_code}: {resp.text[:200]}")
+                logger.warning(f"Groq returned {groq_resp.status_code}: {groq_resp.text[:200]}")
         except Exception as e:
-            logger.error(f"Food gen error on {model}: {e}")
-            continue
+            logger.warning(f"Groq failed: {e}")
+
+    # ── 2. Fall back to OpenRouter if Groq didn't work ───────────
+    if not raw:
+        api_key = getattr(settings, 'OPENROUTER_API_KEY', '')
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type":  "application/json",
+            "HTTP-Referer":  getattr(settings, 'SITE_URL', 'https://foodonline.onrender.com'),
+            "X-Title":       "FoodOnline AI Assistant",
+        }
+
+        FOOD_GEN_MODELS = [
+            "meta-llama/llama-3.1-8b-instruct:free",
+            "mistralai/mistral-7b-instruct:free",
+            "microsoft/phi-3-mini-128k-instruct:free",
+            "google/gemma-2-9b-it:free",
+            "openrouter/auto",
+        ]
+
+        for model in FOOD_GEN_MODELS:
+            try:
+                resp = requests.post(
+                    OPENROUTER_API_URL,
+                    headers=headers,
+                    json={
+                        "model":       model,
+                        "messages":    full_messages,
+                        "max_tokens":  400,
+                        "temperature": 0.1,
+                    },
+                    timeout=30,
+                )
+                if resp.status_code == 200:
+                    content = resp.json()['choices'][0]['message']['content'].strip()
+                    if content:
+                        raw = content
+                        logger.info(f"Food gen OK — model: {model}")
+                        break
+                elif resp.status_code == 429:
+                    logger.error(f"Food gen 429: {resp.text[:200]}")
+                    continue
+                else:
+                    logger.error(f"Food gen {resp.status_code}: {resp.text[:200]}")
+            except Exception as e:
+                logger.error(f"Food gen error on {model}: {e}")
+                continue
 
     if not raw:
-        raise ValueError("All models failed")
+        raise ValueError("All models failed to generate food item.")
 
+    # ── Clean up common AI mistakes ──────────────────────────────
     raw = re.sub(r"```(?:json)?", "", raw).strip().strip("`").strip()
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if match:
+        raw = match.group()
 
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if match:
-            data = json.loads(match.group())
-        else:
-            raise ValueError(f"AI returned non-JSON: {raw[:200]}")
+    except json.JSONDecodeError as e:
+        logger.error(f"Food gen JSON parse failed: {e} | raw: {raw[:300]}")
+        raise ValueError("AI returned invalid JSON. Please try again.")
 
+    # ── Validate and coerce ──────────────────────────────────────
     required = {"title", "description", "category", "price", "tags"}
     missing  = required - data.keys()
     if missing:
-        raise ValueError(f"AI response missing keys: {missing}")
+        logger.error(f"Food gen missing keys: {missing} | data: {data}")
+        raise ValueError("AI response incomplete. Please try again.")
 
-    data["price"] = float(data["price"])
+    try:
+        data["price"] = float(str(data["price"]).replace("₹", "").replace(",", "").strip())
+    except (ValueError, TypeError):
+        data["price"] = 150.0
+
     if not isinstance(data["tags"], list):
         data["tags"] = [str(data["tags"])]
 
-    return data
+    return {
+        "title":       str(data["title"]).strip(),
+        "description": str(data["description"]).strip(),
+        "category":    str(data["category"]).strip(),
+        "price":       data["price"],
+        "tags":        [str(t).strip() for t in data["tags"]],
+    }
 
 
 def get_vendor_categories(vendor):

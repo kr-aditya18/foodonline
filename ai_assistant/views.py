@@ -700,3 +700,26 @@ def vendor_info_view(request, vendor_id):
             'hours':     hours_list,
         },
     })
+    
+    
+# ──────────────────────────────────────────────────────────────
+# PROACTIVE DEAL NUDGE
+# ──────────────────────────────────────────────────────────────
+
+@require_http_methods(['GET'])
+def proactive_nudge_view(request):
+    """
+    GET /ai/nudge/
+    Returns a personalised nudge message for returning customers.
+    Returns null message for guests, vendors, or new customers.
+    Silent — never errors, always returns success:true.
+    """
+    from .customer_utils import get_proactive_nudge
+
+    # Only for authenticated customers
+    role = get_user_role(request.user)
+    if role != 'customer':
+        return JsonResponse({'success': True, 'message': None})
+
+    message = get_proactive_nudge(request.user)
+    return JsonResponse({'success': True, 'message': message})

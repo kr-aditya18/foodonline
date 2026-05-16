@@ -21,11 +21,13 @@ class Payment(models.Model):
 
 class Order(models.Model):
     STATUS = (
-        ('New', 'New'),
-        ('Accepted', 'Accepted'),
-        ('Completed', 'Completed'),
-        ('Cancelled', 'Cancelled'),
-    )
+    ('New', 'New'),
+    ('Accepted', 'Accepted'),
+    ('Preparing', 'Preparing'),
+    ('Out for Delivery', 'Out for Delivery'),
+    ('Completed', 'Completed'),
+    ('Cancelled', 'Cancelled'),
+)
 
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, blank=True, null=True)
@@ -47,7 +49,7 @@ class Order(models.Model):
     tax_data = models.JSONField(blank=True, help_text="Data format: {'tax_type':{'tax_percentage':'tax_amount'}}")
     total_tax = models.FloatField()
     payment_method = models.CharField(max_length=25)
-    status = models.CharField(max_length=15, choices=STATUS, default='New')
+    status = models.CharField(max_length=30, choices=STATUS, default='New')
     is_ordered = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -65,6 +65,7 @@ def vendordashboard(request):
         'total_revenue':          total_revenue,
         'current_month_revenue':  current_month_revenue,
         'recent_orders_data':     recent_orders_data,
+        'status_choices':         Order.STATUS,
     }
     return render(request, 'accounts/vendordashboard.html', context)
 

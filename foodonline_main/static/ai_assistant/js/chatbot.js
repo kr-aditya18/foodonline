@@ -1,44 +1,6 @@
-/**
- * FILE LOCATION:
- *   foodonline_main/static/ai_assistant/js/chatbot.js
- *
- * FoodOnline AI Assistant — Chat Widget Logic
- *
- * STRUCTURE DEPENDENCY:
- *   #foi-messages
- *     └── #foi-typing        ← typing indicator is a CHILD of #foi-messages
- *         └── .foi-bubble
- *   New message bubbles are inserted via insertBefore(wrapper, typingEl)
- *   so typing dots always stay at the very bottom.
- *
- * IMAGE GENERATION (tried in order, silent fallback on failure):
- *   1. Pollinations.ai  — AI food photo, unique seed every call
- *   2. Foodish API      — real food photos, keyword-matched, no key needed
- *   3. Canvas           — local JS render, zero network, NEVER fails
- *
- * IMAGE UPLOAD (Phase 4 addition):
- *   Vendor can manually upload their own photo if AI result doesn't match.
- *   Accepts image/*, max 5 MB, read as base64 DataURL and stored in
- *   card.dataset.imageUrl — same field saveFoodCard already reads,
- *   so NO backend changes are needed.
- */
-
 (function () {
   'use strict';
 
-  /* ══════════════════════════════════════════════════════════════
-     IMAGE PROVIDERS
-     Each function(title, desc, attempt) returns Promise<string>.
-     `attempt` increments on every "Change Image" click so each
-     provider can vary output without repeating the same image.
-     Provider 3 (Canvas) ALWAYS resolves — it is the final net.
-  ══════════════════════════════════════════════════════════════ */
-
-  /* ── 1. Pollinations.ai ────────────────────────────────────────
-     AI-generated food photo. Seed = timestamp + attempt + random
-     so every call — including retries — is a genuinely fresh request
-     that bypasses browser cache and Pollinations' own dedup logic.
-  ─────────────────────────────────────────────────────────────── */
   function providerPollinations(title, desc, attempt) {
     return new Promise(function (resolve, reject) {
       var prompt = encodeURIComponent(
@@ -65,11 +27,7 @@
     });
   }
 
-  /* ── 2. Foodish API ────────────────────────────────────────────
-     Real food photos from foodish-api.com — free, no key, CORS-open.
-     Maps dish keywords → API categories for relevance.
-     Each call fetches a random image, so retries give fresh results.
-  ─────────────────────────────────────────────────────────────── */
+  // -- 2. Foodish API ────────────────────────────────────────────
   function providerFoodish(title) {
     return new Promise(function (resolve, reject) {
       var MAP = [
@@ -115,11 +73,8 @@
     });
   }
 
-  /* ── 3. Canvas — local, zero network, NEVER rejects ───────────
-     Draws a styled gradient tile with food emoji + title text.
-     `attempt` rotates the colour palette so "Change Image" gives
-     a visually different result even for the same dish name.
-  ─────────────────────────────────────────────────────────────── */
+  //-- 3. Canvas — local, zero network, NEVER rejects 
+
   function providerCanvas(title, attempt) {
     return new Promise(function (resolve) {
       var canvas = document.createElement('canvas');
@@ -223,11 +178,8 @@
     });
   }
 
-  /* ══════════════════════════════════════════════════════════════
-     PROVIDER CHAIN RUNNER
-     Tries providers 1 → 2 → 3 in sequence, stopping at first
-     success. Logs failures to console (dev-visible, user-invisible).
-  ══════════════════════════════════════════════════════════════ */
+  //    PROVIDER CHAIN RUNNER
+  
   function tryImageProviders(title, desc, attempt) {
     var PROVIDERS = [
       { name: 'Pollinations', fn: function () { return providerPollinations(title, desc, attempt); } },
@@ -288,6 +240,7 @@
   var recognition    = null;
   var isListening    = false;
   var preferredVoice = null;
+  var nudgeShown     = false;   // show nudge only once per page load
 
   var fab          = document.getElementById('foi-fab');
   var fabDot       = document.getElementById('foi-fab-dot');
@@ -442,6 +395,7 @@
     fabDot.style.display = 'none';
     setTimeout(function () { inputEl.focus(); }, 300);
     scrollBottom();
+    triggerNudge();   /* Phase — proactive nudge on first open */
   }
   function closeChat() {
     isOpen = false;
@@ -1471,6 +1425,46 @@ function renderPostCardChips(savedTitle, savedCategory) {
       });
       suggsEl.appendChild(btn);
     });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     PROACTIVE DEAL NUDGE
+     Fires once per page load when customer opens chatbot.
+     Silent — no typing indicator, no chip disruption.
+  ══════════════════════════════════════════════════════════════ */
+  function triggerNudge() {
+    if (!IS_AUTH || currentRole !== 'customer' || nudgeShown) return;
+    nudgeShown = true;
+
+    fetch('/ai/nudge/', { method: 'GET' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.success && data.message) {
+        /* Small delay so welcome message renders first */
+        setTimeout(function () {
+          appendNudgeMessage(data.message);
+        }, 800);
+      }
+    })
+    .catch(function () {});   /* Silent — nudge failure never bothers the user */
+  }
+
+  function appendNudgeMessage(text) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'foi-msg foi-bot foi-nudge-msg';
+
+    var bubble = document.createElement('div');
+    bubble.className = 'foi-bubble foi-nudge-bubble';
+    bubble.textContent = text;
+
+    var time = document.createElement('div');
+    time.className   = 'foi-msg-time';
+    time.textContent = formatTime(new Date());
+
+    wrapper.appendChild(bubble);
+    wrapper.appendChild(time);
+    msgContainer.insertBefore(wrapper, typingEl);
+    scrollBottom();
   }
 
   /* ══════════════════════════════════════════════════════════════

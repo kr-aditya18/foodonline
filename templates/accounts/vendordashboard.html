@@ -31,7 +31,6 @@
                                     <div class="card">
                                         <div class="card-header">Total Revenue</div>
                                         <div class="card-body text-center">
-                                            <!-- Lesson 212 -->
                                             <h5 class="card-title">&#8377; {{ total_revenue|floatformat:2 }}</h5>
                                         </div>
                                     </div>
@@ -40,7 +39,6 @@
                                     <div class="card">
                                         <div class="card-header">This Month</div>
                                         <div class="card-body text-center">
-                                            <!-- Lesson 213 -->
                                             <h5 class="card-title">&#8377; {{ current_month_revenue|floatformat:2 }}</h5>
                                         </div>
                                     </div>
@@ -49,29 +47,41 @@
 
                             <br>
 
-                            <!-- Recent orders table -->
+                            <!-- Recent Orders header + filter -->
                             <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
-                                <div class="row">
-                                    <div class="element-title has-border right-filters-row">
-                                        <h5>Recent Orders</h5>
+                                <div class="row align-items-center" style="margin-bottom:12px;">
+                                    <div class="col-md-6">
+                                        <h5 class="text-uppercase mb-0">Recent Orders</h5>
+                                    </div>
+                                    <div class="col-md-6 text-right">
+                                        <select id="order-filter" class="form-control d-inline-block"
+                                                style="width:auto;min-width:160px;border-radius:6px;">
+                                            <option value="all">All Time</option>
+                                            <option value="today">Today</option>
+                                            <option value="week">This Week</option>
+                                            <option value="month">This Month</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- Orders table -->
                             <div class="row">
                                 <div class="col-lg-12">
                                     <div class="user-orders-list">
                                         <div class="responsive-table">
-                                            <ul class="table-generic">
+                                            <ul class="table-generic" id="orders-table">
                                                 <li class="order-heading-titles">
                                                     <div>Order #</div>
                                                     <div>Date</div>
                                                     <div>Customer</div>
-                                                    <div>Your Subtotal</div>
+                                                    <div>Subtotal</div>
                                                     <div>Status</div>
                                                 </li>
                                                 {% for item in recent_orders_data %}
-                                                <li class="order-heading-titles">
+                                                <li class="order-heading-titles order-row"
+                                                    data-order-number="{{ item.order.order_number }}"
+                                                    data-created="{{ item.order.created_at|date:'Y-m-d' }}">
                                                     <div>
                                                         <a href="{% url 'vendor_order_detail' item.order.order_number %}">
                                                             {{ item.order.order_number }}
@@ -81,20 +91,25 @@
                                                     <div>{{ item.order.name }}</div>
                                                     <div>&#8377; {{ item.subtotal|floatformat:2 }}</div>
                                                     <div>
-                                                        {% if item.order.status == 'Completed' %}
-                                                            <span class="order-status" style="background:#047a06;">Completed</span>
-                                                        {% elif item.order.status == 'Cancelled' %}
-                                                            <span class="order-status" style="background:#e74c3c;">Cancelled</span>
-                                                        {% elif item.order.status == 'Accepted' %}
-                                                            <span class="order-status" style="background:#1e73be;">Accepted</span>
-                                                        {% else %}
-                                                            <span class="order-status" style="background:#f39c12;">{{ item.order.status }}</span>
-                                                        {% endif %}
+                                                        <select class="status-dropdown"
+                                                                data-order="{{ item.order.order_number }}"
+                                                                style="border-radius:5px;padding:4px 8px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid #ddd;">
+                                                            {% for value, label in status_choices %}
+                                                                <option value="{{ value }}"
+                                                                    {% if item.order.status == value %}selected{% endif %}>
+                                                                    {{ label }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <span class="status-msg"
+                                                              style="font-size:11px;margin-left:6px;display:none;"></span>
                                                     </div>
                                                 </li>
                                                 {% empty %}
                                                 <li class="order-heading-titles">
-                                                    <div style="text-align:center; padding:20px;">No orders yet.</div>
+                                                    <div colspan="5" style="text-align:center;padding:20px;">
+                                                        No orders yet.
+                                                    </div>
                                                 </li>
                                                 {% endfor %}
                                             </ul>
@@ -110,4 +125,98 @@
         </div>
     </div>
 </div>
+
+<script>
+// ── Status colour map ────────────────────────────────────────
+const STATUS_COLORS = {
+    'New':              '#f39c12',
+    'Accepted':         '#1e73be',
+    'Preparing':        '#8e44ad',
+    'Out for Delivery': '#e67e22',
+    'Completed':        '#047a06',
+    'Cancelled':        '#e74c3c',
+};
+
+function styleDropdown(select) {
+    const color = STATUS_COLORS[select.value] || '#888';
+    select.style.borderColor  = color;
+    select.style.color        = color;
+    select.style.background   = color + '18';  // 10% tint
+}
+
+// Style all dropdowns on load
+document.querySelectorAll('.status-dropdown').forEach(styleDropdown);
+
+// ── Status update via AJAX ───────────────────────────────────
+document.querySelectorAll('.status-dropdown').forEach(function(select) {
+    select.addEventListener('change', function() {
+        const orderNumber = this.dataset.order;
+        const newStatus   = this.value;
+        const msg         = this.parentElement.querySelector('.status-msg');
+
+        styleDropdown(this);
+        msg.style.display = 'inline';
+        msg.style.color   = '#888';
+        msg.textContent   = 'Saving…';
+
+        fetch("{% url 'update_order_status' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type':  'application/json',
+                'X-CSRFToken':   '{{ csrf_token }}',
+            },
+            body: JSON.stringify({
+                order_number: orderNumber,
+                status:       newStatus,
+            }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                msg.style.color = '#27ae60';
+                msg.textContent = '✓ Saved';
+                setTimeout(() => { msg.style.display = 'none'; }, 2000);
+            } else {
+                msg.style.color = '#e74c3c';
+                msg.textContent = '✗ ' + (data.error || 'Failed');
+            }
+        })
+        .catch(() => {
+            msg.style.color = '#e74c3c';
+            msg.textContent = '✗ Network error';
+        });
+    });
+});
+
+// ── Time filter ──────────────────────────────────────────────
+document.getElementById('order-filter').addEventListener('change', function() {
+    const filter = this.value;
+    const now    = new Date();
+    const rows   = document.querySelectorAll('.order-row');
+
+    rows.forEach(function(row) {
+        const dateStr = row.dataset.created;   // e.g. "2026-05-17"
+        if (!dateStr || filter === 'all') {
+            row.style.display = '';
+            return;
+        }
+
+        const rowDate = new Date(dateStr);
+        let show = false;
+
+        if (filter === 'today') {
+            show = rowDate.toDateString() === now.toDateString();
+        } else if (filter === 'week') {
+            const weekAgo = new Date(now);
+            weekAgo.setDate(now.getDate() - 7);
+            show = rowDate >= weekAgo;
+        } else if (filter === 'month') {
+            show = rowDate.getMonth()    === now.getMonth() &&
+                   rowDate.getFullYear() === now.getFullYear();
+        }
+
+        row.style.display = show ? '' : 'none';
+    });
+});
+</script>
 {% endblock %}

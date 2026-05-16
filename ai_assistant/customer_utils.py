@@ -552,3 +552,75 @@ def _serialize_vendor(vendor, distance_str=''):
         'distance_str': distance_str,
         'categories':   categories,
     }
+    
+    
+# ══════════════════════════════════════════════════════════════════
+# PROACTIVE DEAL NUDGE
+# ══════════════════════════════════════════════════════════════════
+
+def get_proactive_nudge(user):
+    """
+    Returns a personalised nudge message for a returning customer.
+
+    Logic:
+      1. Find their most-ordered food item from past orders
+      2. Check it's still available
+      3. Return a warm message referencing that item + vendor
+
+    Returns a string message or None (if no history / not applicable).
+    """
+    from orders.models import OrderedFood
+    from django.db.models import Sum
+
+    if not user or not user.is_authenticated:
+        return None
+
+    try:
+        # Get their single most-ordered item
+        top = (
+            OrderedFood.objects
+            .filter(user=user)
+            .values('fooditem_id')
+            .annotate(total_qty=Sum('quantity'))
+            .order_by('-total_qty')
+            .first()
+        )
+
+        if not top:
+            return None
+
+        from menu.models import FoodItem
+        try:
+            food = FoodItem.objects.select_related(
+                'vendor', 'category'
+            ).get(
+                id=top['fooditem_id'],
+                is_available=True,
+                vendor__is_approved=True,
+            )
+        except FoodItem.DoesNotExist:
+            return None
+
+        from vendor.utils import is_open_now
+        is_open = is_open_now(food.vendor)
+
+        if is_open:
+            messages = [
+                f"👋 Welcome back! Your favourite — **{food.food_title}** from {food.vendor.vendor_name} — is available right now. Want to order again?",
+                f"🍽️ Hey! Last time you loved **{food.food_title}** from {food.vendor.vendor_name}. They're open right now — perfect timing!",
+                f"🔥 Quick heads up: **{food.food_title}** from {food.vendor.vendor_name} is available now at ₹{food.price:.0f}. Your usual awaits!",
+            ]
+        else:
+            messages = [
+                f"👋 Welcome back! Your go-to **{food.food_title}** from {food.vendor.vendor_name} is currently closed — but browse other restaurants while you wait!",
+                f"🍽️ Hey! {food.vendor.vendor_name} (your favourite spot) is closed right now. Check out nearby restaurants in the meantime!",
+            ]
+
+        # Pick message based on user id for consistency
+        import hashlib
+        idx = int(hashlib.md5(str(user.id).encode()).hexdigest(), 16) % len(messages)
+        return messages[idx]
+
+    except Exception as e:
+        logger.warning(f"[Nudge] Failed for user {user.id}: {e}")
+        return None

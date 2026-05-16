@@ -486,3 +486,42 @@ def order_complete(request):
         return render(request, 'orders/order_complete.html', context)
     except Exception:
         return redirect('home')
+    
+    
+# ─────────────────────────────────────────────
+# Vendor — update order status (AJAX)
+# ─────────────────────────────────────────────
+
+@csrf_exempt
+@login_required(login_url='login')
+def update_order_status(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    try:
+        from vendor.models import Vendor
+        vendor = Vendor.objects.get(user=request.user)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Vendor not found'}, status=403)
+
+    try:
+        data         = json.loads(request.body)
+        order_number = data.get('order_number', '').strip()
+        new_status   = data.get('status', '').strip()
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+    valid_statuses = ['New', 'Accepted', 'Preparing', 'Out for Delivery', 'Completed', 'Cancelled']
+    if new_status not in valid_statuses:
+        return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
+
+    try:
+        # Security: vendor can only update orders that contain their items
+        order = Order.objects.get(order_number=order_number, vendors=vendor)
+    except Order.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Order not found or access denied'}, status=404)
+
+    order.status = new_status
+    order.save(update_fields=['status', 'updated_at'])
+
+    return JsonResponse({'success': True, 'status': new_status})

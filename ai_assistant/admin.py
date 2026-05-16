@@ -2,6 +2,7 @@
 
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from .models import ChatSession, ChatMessage, GuestChatLog, AIInteractionLog, RateLimitBucket
 
 
@@ -51,9 +52,9 @@ class GuestChatLogAdmin(admin.ModelAdmin):
 @admin.register(AIInteractionLog)
 class AIInteractionLogAdmin(admin.ModelAdmin):
     list_display    = (
-        'created_at', 'success', 'role', 'feature',
+        'created_at', 'status_badge', 'role', 'feature',
         'user', 'ip_address', 'short_message',
-        'short_reply', 'model_used', 'response_time_ms',
+        'short_reply', 'model_used', 'response_time_badge',
     )
     list_filter     = ('success', 'role', 'feature', 'created_at')
     search_fields   = ('user__email', 'ip_address', 'user_message', 'model_used', 'error_message')
@@ -67,6 +68,27 @@ class AIInteractionLogAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):              return False
     def has_change_permission(self, request, obj=None): return False
+
+    def status_badge(self, obj):
+        # Django 6 fix: mark_safe instead of format_html with no args
+        if obj.success:
+            return mark_safe('<span style="color:#27ae60;font-weight:700;">✅ OK</span>')
+        return mark_safe('<span style="color:#e74c3c;font-weight:700;">❌ FAIL</span>')
+    status_badge.short_description = 'Status'
+
+    def response_time_badge(self, obj):
+        ms = obj.response_time_ms or 0
+        if ms < 1000:
+            color = '#27ae60'   # green  — fast
+        elif ms < 3000:
+            color = '#f39c12'   # orange — medium
+        else:
+            color = '#e74c3c'   # red    — slow
+        return format_html(
+            '<span style="color:{};font-weight:600;">{}ms</span>',
+            color, ms,
+        )
+    response_time_badge.short_description = 'Response Time'
 
     def short_message(self, obj):
         msg = obj.user_message or ''

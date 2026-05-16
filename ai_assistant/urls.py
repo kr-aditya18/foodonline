@@ -14,4 +14,5 @@ urlpatterns = [
     path('reorder/',             views.reorder_suggestions_view, name='ai_reorder'),
     path('nearby/',              views.nearby_restaurants_view,  name='ai_nearby'),
     path('vendor-info/<int:vendor_id>/', views.vendor_info_view, name='ai_vendor_info'),
+    path('ai/nudge/', views.proactive_nudge_view, name='ai_nudge'),
 ]
