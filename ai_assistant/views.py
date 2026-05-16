@@ -634,3 +634,55 @@ def nearby_restaurants_view(request):
         })
 
     return JsonResponse({'success': True, 'vendors': vendors})
+
+# ──────────────────────────────────────────────────────────────
+# PHASE 7 — VENDOR CONTACT INFO
+# ──────────────────────────────────────────────────────────────
+
+@require_http_methods(['GET'])
+def vendor_info_view(request, vendor_id):
+    """
+    GET /ai/vendor-info/<vendor_id>/
+    Returns contact info + opening hours for a vendor.
+    Works for authenticated and guest users.
+    """
+    from vendor.models import Vendor, OpeningHour
+    from vendor.utils import is_open_now
+
+    try:
+        vendor = Vendor.objects.select_related(
+            'user', 'user_profile'
+        ).get(id=vendor_id, is_approved=True)
+    except Vendor.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Vendor not found.'}, status=404)
+
+    # Opening hours — all 7 days
+    hours = OpeningHour.objects.filter(vendor=vendor).order_by('day')
+    DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    hours_list = []
+    for h in hours:
+        hours_list.append({
+            'day':       DAY_NAMES[h.day - 1] if 1 <= h.day <= 7 else f'Day {h.day}',
+            'is_closed': h.is_closed,
+            'from_hour': h.from_hour if not h.is_closed else None,
+            'to_hour':   h.to_hour   if not h.is_closed else None,
+        })
+
+    profile = vendor.user_profile
+
+    return JsonResponse({
+        'success': True,
+        'vendor': {
+            'id':        vendor.id,
+            'name':      vendor.vendor_name,
+            'slug':      vendor.vendor_slug,
+            'phone':     vendor.user.phone_number or '',
+            'email':     vendor.user.email or '',
+            'address':   profile.address or '',
+            'city':      profile.city or '',
+            'state':     profile.state or '',
+            'pincode':   profile.pincode or '',
+            'is_open':   is_open_now(vendor),
+            'hours':     hours_list,
+        },
+    })

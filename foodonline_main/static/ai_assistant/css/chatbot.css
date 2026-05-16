@@ -1320,3 +1320,156 @@
 .foi-vendor-btn:hover {
   background: var(--foi-primary-dark, #3730a3);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 7 — ADD TO CART + VENDOR INFO PANEL
+═══════════════════════════════════════════════════════════════ */
+
+/* Two-button footer row */
+.foi-rec-footer--two,
+.foi-vendor-footer--two {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--foi-border, #e8ecf0);
+}
+
+/* Primary cart button */
+.foi-rec-btn-primary {
+  flex: 1;
+  background: var(--foi-red, #e31837) !important;
+  color: #fff !important;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, transform 0.12s !important;
+}
+.foi-rec-btn-primary:hover {
+  background: var(--foi-red-dk, #c0142f) !important;
+  transform: scale(1.02) !important;
+}
+.foi-rec-btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Secondary / View Menu link */
+.foi-rec-btn-secondary {
+  flex: 1;
+  background: var(--foi-white, #fff) !important;
+  color: var(--foi-red, #e31837) !important;
+  border: 1.5px solid var(--foi-red, #e31837) !important;
+  text-align: center;
+}
+.foi-rec-btn-secondary:hover {
+  background: #fff5f7 !important;
+}
+
+/* Vendor footer two-button override */
+.foi-vendor-footer--two {
+  border-top: 1px solid var(--foi-border, #e8ecf0);
+}
+
+.foi-vendor-info-btn {
+  flex: 1;
+  background: #f0f4ff;
+  color: var(--foi-primary, #4f46e5);
+  border: 1.5px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.foi-vendor-info-btn:hover {
+  background: #e0e7ff;
+}
+
+/* ── Vendor Info Panel ───────────────────────────────────── */
+.foi-vendor-info-panel {
+  margin: 0 12px 12px;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 12px;
+  animation: foi-msgIn 0.2s ease;
+}
+
+.foi-vendor-info-loading,
+.foi-vendor-info-error {
+  padding: 12px;
+  color: var(--foi-muted, #6c757d);
+  text-align: center;
+}
+
+.foi-vi-header {
+  background: var(--foi-dark, #1a3c34);
+  color: #fff;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.foi-vi-open   { color: #4ade80; font-size: 11px; font-weight: 700; }
+.foi-vi-closed { color: #f87171; font-size: 11px; font-weight: 700; }
+
+.foi-vi-contacts {
+  padding: 8px 12px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.foi-vi-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--foi-text, #333);
+  text-decoration: none;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.foi-vi-row:hover { color: var(--foi-red, #e31837); }
+
+.foi-vi-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+/* Opening hours */
+.foi-vi-hours {
+  padding: 8px 12px;
+  background: #f8faff;
+  border-top: 1px solid #e8ecf0;
+}
+
+.foi-vi-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--foi-primary, #4f46e5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.foi-vi-hours-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid #eef2ff;
+  font-size: 11px;
+}
+.foi-vi-hours-row:last-child { border-bottom: none; }
+
+.foi-vi-day  { font-weight: 600; color: var(--foi-text, #333); }
+.foi-vi-time { color: var(--foi-muted, #718096); }
+
+.foi-vi-footer {
+  padding: 8px 12px 10px;
+  background: #fff;
+  border-top: 1px solid #e8ecf0;
+}

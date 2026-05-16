@@ -546,6 +546,9 @@ def _serialize_vendor(vendor, distance_str=''):
         'cover_url':    cover_url,
         'profile_url':  profile_url,
         'city':         vendor.user_profile.city or '',
+        'address':      vendor.user_profile.address or '',
+        'phone':        vendor.user.phone_number or '',
+        'email':        vendor.user.email or '',
         'distance_str': distance_str,
         'categories':   categories,
     }

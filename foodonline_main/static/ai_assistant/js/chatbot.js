@@ -1224,6 +1224,139 @@
   /* ══════════════════════════════════════════════════════════════
      HTML ESCAPE HELPER
   ══════════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     PHASE 7 — ADD TO CART (AJAX)
+  ══════════════════════════════════════════════════════════════ */
+  function addToCart(foodId, btn) {
+    var originalText = btn.textContent;
+    btn.disabled    = true;
+    btn.textContent = '⏳ Adding…';
+
+    fetch('/marketplace/add_to_cart/' + foodId + '/', {
+      method:  'GET',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') },
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.status === 'login_required') {
+        btn.disabled    = false;
+        btn.textContent = originalText;
+        appendMessage('bot', '🔐 Please log in to add items to your cart!');
+        return;
+      }
+      if (data.status === 'restaurant_closed') {
+        btn.disabled    = false;
+        btn.textContent = originalText;
+        appendMessage('bot', '🚫 This restaurant is currently closed. Try again when they open!');
+        return;
+      }
+      if (data.status === 'success') {
+        btn.textContent  = '✅ Added!';
+        btn.style.background = '#27ae60';
+        /* Update cart counter badge in the main navbar if it exists */
+        var counter = document.querySelector('.cart_counter');
+        if (counter && data.cart_counter) {
+          var count = data.cart_counter['cart_count'] || 0;
+          counter.textContent = count;
+        }
+        setTimeout(function () {
+          btn.disabled    = false;
+          btn.textContent = '🛒 Add to Cart';
+          btn.style.background = '';
+        }, 2000);
+      } else {
+        btn.disabled    = false;
+        btn.textContent = originalText;
+        appendMessage('bot', '⚠️ ' + (data.message || 'Could not add to cart. Please try again.'));
+      }
+    })
+    .catch(function () {
+      btn.disabled    = false;
+      btn.textContent = originalText;
+      appendMessage('bot', '❌ Connection error. Please try again.');
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     PHASE 7 — VENDOR CONTACT INFO PANEL
+  ══════════════════════════════════════════════════════════════ */
+  function triggerVendorInfo(vendorId, vendorName, card) {
+    /* Toggle: if panel already open, close it */
+    var existing = card.querySelector('.foi-vendor-info-panel');
+    if (existing) {
+      existing.remove();
+      return;
+    }
+
+    var panel = document.createElement('div');
+    panel.className = 'foi-vendor-info-panel';
+    panel.innerHTML = '<div class="foi-vendor-info-loading">⏳ Loading contact info…</div>';
+    card.appendChild(panel);
+    scrollBottom();
+
+    fetch('/ai/vendor-info/' + vendorId + '/', { method: 'GET' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.success) {
+        panel.innerHTML = '<div class="foi-vendor-info-error">❌ Could not load info.</div>';
+        return;
+      }
+      var v = data.vendor;
+
+      /* Open/closed badge */
+      var statusBadge = v.is_open
+        ? '<span class="foi-vi-open">🟢 Open Now</span>'
+        : '<span class="foi-vi-closed">🔴 Closed Now</span>';
+
+      /* Contact rows */
+      var contactRows = '';
+      if (v.phone) {
+        contactRows += '<a class="foi-vi-row" href="tel:' + escHtml(v.phone) + '">' +
+          '<span class="foi-vi-icon">📞</span><span>' + escHtml(v.phone) + '</span></a>';
+      }
+      if (v.email) {
+        contactRows += '<a class="foi-vi-row" href="mailto:' + escHtml(v.email) + '">' +
+          '<span class="foi-vi-icon">✉️</span><span>' + escHtml(v.email) + '</span></a>';
+      }
+      if (v.address) {
+        var fullAddr = [v.address, v.city, v.state, v.pincode].filter(Boolean).join(', ');
+        contactRows += '<div class="foi-vi-row">' +
+          '<span class="foi-vi-icon">📍</span><span>' + escHtml(fullAddr) + '</span></div>';
+      }
+
+      /* Opening hours */
+      var hoursRows = '';
+      if (v.hours && v.hours.length) {
+        hoursRows = '<div class="foi-vi-section-title">🕐 Opening Hours</div>';
+        v.hours.forEach(function (h) {
+          hoursRows += '<div class="foi-vi-hours-row">' +
+            '<span class="foi-vi-day">' + escHtml(h.day) + '</span>' +
+            '<span class="foi-vi-time">' +
+              (h.is_closed ? '<em>Closed</em>' : escHtml(h.from_hour) + ' – ' + escHtml(h.to_hour)) +
+            '</span>' +
+          '</div>';
+        });
+      }
+
+      panel.innerHTML = [
+        '<div class="foi-vi-header">',
+        '  <strong>' + escHtml(v.name) + '</strong>',
+        '  ' + statusBadge,
+        '</div>',
+        '<div class="foi-vi-contacts">' + (contactRows || '<em>No contact info available</em>') + '</div>',
+        hoursRows ? '<div class="foi-vi-hours">' + hoursRows + '</div>' : '',
+        '<div class="foi-vi-footer">',
+        '  <a class="foi-vendor-btn" href="/marketplace/' + escHtml(v.slug) + '/" target="_blank">🛒 View Full Menu</a>',
+        '</div>',
+      ].join('');
+
+      scrollBottom();
+    })
+    .catch(function () {
+      panel.innerHTML = '<div class="foi-vendor-info-error">❌ Connection error.</div>';
+    });
+  }
+
   function escHtml(str) {
     return String(str || '')
       .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
@@ -1498,14 +1631,28 @@ function renderPostCardChips(savedTitle, savedCategory) {
         '    <span class="foi-rec-price">₹' + Number(item.price).toFixed(0) + '</span>',
         '  </div>',
         '</div>',
-        '<div class="foi-rec-footer">',
-        '  <a class="foi-rec-order-btn" href="/marketplace/' + escHtml(item.vendor_slug) + '/" target="_blank">',
-        '    🛒 Order Again',
+        '<div class="foi-rec-footer foi-rec-footer--two">',
+        '  <a class="foi-rec-order-btn foi-rec-btn-secondary" href="/marketplace/' + escHtml(item.vendor_slug) + '/" target="_blank">',
+        '    🍽️ View Menu',
         '  </a>',
+        '  <button class="foi-rec-order-btn foi-rec-btn-primary foi-add-cart-btn" data-food-id="' + item.id + '">',
+        '    🛒 Add to Cart',
+        '  </button>',
         '</div>',
       ].join('');
 
       wrap.appendChild(card);
+    });
+
+    /* Wire Add to Cart buttons */
+    wrap.querySelectorAll('.foi-add-cart-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!IS_AUTH) {
+          appendMessage('bot', '🔐 Please log in to add items to your cart!');
+          return;
+        }
+        addToCart(btn.dataset.foodId, btn);
+      });
     });
 
     msgContainer.insertBefore(wrap, typingEl);
@@ -1584,14 +1731,28 @@ function renderPostCardChips(savedTitle, savedCategory) {
           : '',
         '  <div class="foi-rec-reason">' + escHtml(item.match_reason) + '</div>',
         '</div>',
-        '<div class="foi-rec-footer">',
-        '  <a class="foi-rec-order-btn" href="/marketplace/' + escHtml(item.vendor_slug) + '/" target="_blank">',
-        '    🛒 Order Now',
+        '<div class="foi-rec-footer foi-rec-footer--two">',
+        '  <a class="foi-rec-order-btn foi-rec-btn-secondary" href="/marketplace/' + escHtml(item.vendor_slug) + '/" target="_blank">',
+        '    🍽️ View Menu',
         '  </a>',
+        '  <button class="foi-rec-order-btn foi-rec-btn-primary foi-add-cart-btn" data-food-id="' + item.id + '">',
+        '    🛒 Add to Cart',
+        '  </button>',
         '</div>',
       ].join('');
 
       wrap.appendChild(card);
+    });
+
+    /* Wire Add to Cart buttons */
+    wrap.querySelectorAll('.foi-add-cart-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!IS_AUTH) {
+          appendMessage('bot', '🔐 Please log in to add items to your cart!');
+          return;
+        }
+        addToCart(btn.dataset.foodId, btn);
+      });
     });
 
     msgContainer.insertBefore(wrap, typingEl);
@@ -1695,12 +1856,20 @@ function renderPostCardChips(savedTitle, savedCategory) {
         distHtml,
         '  <div class="foi-vendor-tags">' + (tagsHtml || '<span class="foi-vendor-tag">Restaurant</span>') + '</div>',
         '</div>',
-        '<div class="foi-vendor-footer">',
+        '<div class="foi-vendor-footer foi-vendor-footer--two">',
+        '  <button class="foi-vendor-info-btn" data-vendor-id="' + v.id + '">',
+        '    ℹ️ Info & Hours',
+        '  </button>',
         '  <a class="foi-vendor-btn" href="/marketplace/' + escHtml(v.slug) + '/" target="_blank">',
         '    🛒 View Menu',
         '  </a>',
         '</div>',
       ].join('');
+
+      /* Wire Info button */
+      card.querySelector('.foi-vendor-info-btn').addEventListener('click', function () {
+        triggerVendorInfo(v.id, v.name, card);
+      });
 
       wrap.appendChild(card);
     });
