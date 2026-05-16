@@ -453,9 +453,10 @@
   /* ── Trigger keywords ── */
   var SKIP_TRIGGERS = [
     "compare", "pricing", "price compare", "competitor",
-    "improve", "suggestion", "tip", "help", "how to",
+    "improve", "suggestion", "tip", "how to",
     "what is", "kya hai", "kaise", "hello", "hi ", "hey",
     "thank", "okay", "ok ", "great", "good", "nice",
+    "how are", "who is", "what are", "tell me about",
   ];
 
   function isFoodGenRequest(text) {
@@ -465,12 +466,33 @@
     return !isSkip;
   }
 
+  /* ── Compare pricing intercept ── */
+  var COMPARE_TRIGGERS = [
+    "compare", "competitor", "pricing", "price compare",
+    "market price", "how much others", "competitor price",
+    "compare my price", "compare pricing",
+  ];
+
+  function isCompareRequest(text) {
+    if (currentRole !== 'vendor') return false;
+    var lower = text.toLowerCase();
+    return COMPARE_TRIGGERS.some(function (kw) { return lower.includes(kw); });
+  }
 
   /* ── Override sendMessage to intercept food-gen requests ── */
   var _originalSendMessage = sendMessage;
 
-  sendMessage = function (overrideText) {
+   sendMessage = function (overrideText) {
     var text = (overrideText !== undefined ? overrideText : inputEl.value).trim();
+
+    if (text && currentRole === 'vendor' && isCompareRequest(text)) {
+      inputEl.value        = '';
+      inputEl.style.height = 'auto';
+      appendMessage('user', text);
+      suggsEl.style.display = 'none';
+      triggerPriceComparison();
+      return;
+    }
 
     if (text && currentRole === 'vendor' && isFoodGenRequest(text)) {
       inputEl.value        = '';
@@ -515,7 +537,77 @@
       appendMessage('bot', '❌ Network error while generating item. Please try again.');
     });
   }
+  /* ── Price comparison flow ── */
+  function triggerPriceComparison() {
+    setTyping(true);
+    sendBtn.disabled = true;
 
+    fetch('/ai/compare-pricing/', {
+      method:  'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      setTyping(false);
+      sendBtn.disabled = false;
+
+      if (data.success) {
+        appendMessage('bot', '📊 Here\'s your pricing analysis:');
+        appendMessage('bot', data.summary);
+        appendPriceTable(data.data);
+      } else {
+        appendMessage('bot', '❌ ' + data.error);
+      }
+    })
+    .catch(function () {
+      setTyping(false);
+      sendBtn.disabled = false;
+      appendMessage('bot', '❌ Could not fetch pricing data. Try again.');
+    });
+  }
+
+  /* ── Price comparison table ── */
+  function appendPriceTable(data) {
+    if (!data.items || data.items.length === 0) return;
+
+    var hasComparisons = data.items.some(function (i) { return i.competitor_avg !== null; });
+    if (!hasComparisons) {
+      appendMessage('bot', '📭 No competitor data found in your city yet. Keep building your menu!');
+      return;
+    }
+
+    var rows = data.items
+      .filter(function (i) { return i.competitor_avg !== null; })
+      .map(function (item) {
+        var icon = item.status === 'expensive' ? '🔴' :
+                   item.status === 'cheap'     ? '🟡' : '🟢';
+        return [
+          '<tr>',
+          '<td>' + escHtml(item.title) + '</td>',
+          '<td>₹' + item.my_price + '</td>',
+          '<td>₹' + item.competitor_avg + '</td>',
+          '<td>₹' + item.competitor_min + '–₹' + item.competitor_max + '</td>',
+          '<td>' + icon + ' ' + item.status + '</td>',
+          '</tr>',
+        ].join('');
+      }).join('');
+
+    var table = document.createElement('div');
+    table.className = 'foi-price-table-wrap';
+    table.innerHTML = [
+      '<div class="foi-price-table-title">📋 ' + escHtml(data.vendor_name) + ' — ' + escHtml(data.city) + '</div>',
+      '<table class="foi-price-table">',
+      '<thead><tr>',
+      '<th>Item</th><th>My Price</th><th>Mkt Avg</th><th>Range</th><th>Status</th>',
+      '</tr></thead>',
+      '<tbody>' + rows + '</tbody>',
+      '</table>',
+      '<div class="foi-price-legend">🟢 Competitive &nbsp; 🔴 Expensive &nbsp; 🟡 Low</div>',
+    ].join('');
+
+    msgContainer.insertBefore(table, typingEl);
+    scrollBottom();
+  }
   /* ── Render editable food card ── */
   function appendFoodCard(item) {
     var tagsStr = Array.isArray(item.tags) ? item.tags.join(', ') : item.tags;

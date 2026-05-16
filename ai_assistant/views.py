@@ -3,8 +3,10 @@ import logging
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-
+from django.views.decorators.http import require_http_methods
 from .models import ChatSession, ChatMessage, GuestChatLog
+
+from .utils_phase3 import build_price_comparison_data, format_comparison_for_ai
 from .utils import (
     get_user_role,
     generate_session_key,
@@ -280,3 +282,62 @@ def save_food_item_view(request):
 
     except Exception as e:
         return JsonResponse({"success": False, "error": f"Save failed: {str(e)}"}, status=500)
+    
+
+@login_required
+@require_http_methods(["GET"])
+def compare_pricing_view(request):
+    """
+    GET /ai/compare-pricing/
+    Returns price comparison data + AI summary for the logged-in vendor.
+    """
+    role = get_user_role(request.user)
+    if role != 'vendor':
+        return JsonResponse({'success': False, 'error': 'Vendors only.'}, status=403)
+
+    try:
+        from vendor.models import Vendor
+        vendor = Vendor.objects.get(user=request.user)
+    except Vendor.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Vendor profile not found.'}, status=404)
+
+    try:
+        comparison_data = build_price_comparison_data(vendor)
+    except Exception as e:
+        logger.error(f"Price comparison error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    if not comparison_data['items']:
+        return JsonResponse({
+            'success': True,
+            'summary': "You don't have any menu items yet. Add some items first!",
+            'data':    comparison_data,
+        })
+
+    # Ask AI to summarize
+    formatted = format_comparison_for_ai(comparison_data)
+    ai_prompt = f"""You are a restaurant pricing consultant.
+Here is the price comparison data for a vendor:
+
+{formatted}
+
+Give a SHORT, actionable summary (max 5 bullet points) with:
+- Which items are priced well
+- Which items are too expensive vs market
+- Which items are priced too low (opportunity to increase)
+- 1-2 specific recommendations
+
+Be concise, friendly, use ₹ symbol. No markdown headers."""
+
+    result = call_openrouter(
+        [{"role": "user", "content": ai_prompt}],
+        role='vendor'
+    )
+
+    summary = result['reply'] if result['success'] else "⚠️ AI summary unavailable, but here's the raw data:"
+
+    return JsonResponse({
+        'success': True,
+        'summary': summary,
+        'data':    comparison_data,
+    })
