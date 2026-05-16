@@ -118,6 +118,11 @@ LOGGING = {
             'level': 'WARNING',
             'propagate': True,
         },
+        'ai_assistant': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     },
 }
 
@@ -142,4 +147,6 @@ SECURE_PROXY_SSL_HEADER           = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT               = False
 SESSION_COOKIE_SECURE             = True
 CSRF_COOKIE_SECURE                = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'

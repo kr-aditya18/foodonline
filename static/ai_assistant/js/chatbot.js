@@ -28,6 +28,10 @@
         }
       }
     }
+    if (!cookieValue && name === 'csrftoken') {
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta) cookieValue = meta.getAttribute('content');
+    }
     return cookieValue;
   }
 

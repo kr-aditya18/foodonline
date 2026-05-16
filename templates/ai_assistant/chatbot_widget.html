@@ -1,9 +1,5 @@
 {% load static %}
-{% comment %}
-FILE LOCATION: templates/ai_assistant/chatbot_widget.html
-Include in base.html just before </body>:
-    {% include 'ai_assistant/chatbot_widget.html' %}
-{% endcomment %}
+<meta name="csrf-token" content="{{ csrf_token }}">
 
 <link rel="stylesheet" href="{% static 'ai_assistant/css/chatbot.css' %}">
 
