@@ -82,3 +82,6 @@ services:
       # ── AI Assistant ─────────────────────────────────────────────────────
       - key: OPENROUTER_API_KEY
         sync: false
+
+      - key: GROQ_API_KEY
+        sync: false
