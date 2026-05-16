@@ -9,15 +9,23 @@ from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 
 from .models import ChatSession, ChatMessage, GuestChatLog
-from .utils_phase3 import build_price_comparison_data, format_comparison_for_ai
 from .utils import (
     get_user_role,
     generate_session_key,
     call_openrouter,
     build_message_history,
     get_client_ip,
+)
+from .vendor_utils import (
+    build_price_comparison_data,
+    format_comparison_for_ai,
     generate_food_item_structured,
     get_vendor_categories,
+)
+from .customer_utils import (
+    parse_customer_intent,
+    query_food_recommendations,
+    format_recommendations_for_ai,
 )
 
 logger = logging.getLogger(__name__)
@@ -466,3 +474,137 @@ Be concise, friendly, use ₹ symbol. No markdown headers."""
         'summary': summary,
         'data':    comparison_data,
     })
+# ──────────────────────────────────────────────────────────────
+# PHASE 5 — CUSTOMER MOOD-BASED FOOD RECOMMENDATIONS
+# ──────────────────────────────────────────────────────────────
+
+@require_http_methods(['GET'])
+def recommend_food_view(request):
+    message = request.GET.get('q', '').strip()
+    if not message:
+        return JsonResponse(
+            {'success': False, 'error': 'Please send a message to get recommendations.'},
+            status=400,
+        )
+
+    if len(message) > 500:
+        return JsonResponse(
+            {'success': False, 'error': 'Message too long (max 500 chars).'},
+            status=400,
+        )
+
+    intent = parse_customer_intent(message)
+
+    if not intent['is_food_request']:
+        return JsonResponse({
+            'success': True,
+            'intro':   "I'm not sure what you're looking for 😊 Tell me what you're craving or how you're feeling, and I'll find the perfect dish!",
+            'items':   [],
+            'intent':  intent,
+        })
+
+    user  = request.user if request.user.is_authenticated else None
+    items = query_food_recommendations(intent, customer_user=user, limit=5)
+
+    if not items:
+        return JsonResponse({
+            'success': True,
+            'intro':   (
+                "😕 I couldn't find matching dishes right now — "
+                "our vendors are still growing! "
+                "Try browsing all restaurants or search by name."
+            ),
+            'items':   [],
+            'intent':  intent,
+        })
+
+    formatted = format_recommendations_for_ai(items, intent)
+    ai_prompt = (
+        f"You are a friendly food assistant for FoodOnline.\n"
+        f"Here is what the customer said and the top matching dishes:\n\n"
+        f"{formatted}\n\n"
+        f"Write a SHORT, warm, enthusiastic 2-3 sentence intro message that:\n"
+        f"- Acknowledges their mood/craving\n"
+        f"- Teases the recommendations below\n"
+        f"- Uses 1-2 food emojis\n"
+        f"Do NOT list the dishes — the cards handle that. "
+        f"Keep it under 60 words. No markdown."
+    )
+
+    result = call_openrouter(
+        [{'role': 'user', 'content': ai_prompt}],
+        role='customer',
+    )
+
+    if result['success'] and result['reply']:
+        intro = result['reply']
+    else:
+        moods    = intent.get('moods', [])
+        mood_str = moods[0] if moods else 'your craving'
+        intro    = (
+            f"🍽️ Perfect! I found some great options for your {mood_str} mood. "
+            f"Here are my top picks just for you!"
+        )
+
+    return JsonResponse({
+        'success': True,
+        'intro':   intro,
+        'items':   items,
+        'intent':  intent,
+    })
+    
+# ──────────────────────────────────────────────────────────────
+# PHASE — ORDER TRACKING
+# ──────────────────────────────────────────────────────────────
+
+@login_required
+@require_http_methods(['GET'])
+def order_tracking_view(request):
+    """
+    GET /ai/orders/
+    Returns last 5 orders for the logged-in customer with
+    status, timeline, items, and vendor contact info.
+    """
+    from .customer_utils import get_customer_orders
+    role = get_user_role(request.user)
+    if role != 'customer':
+        return JsonResponse({'success': False, 'error': 'Customers only.'}, status=403)
+
+    orders = get_customer_orders(request.user, limit=5)
+
+    if not orders:
+        return JsonResponse({
+            'success': True,
+            'message': "You haven't placed any orders yet. Browse restaurants and order something delicious! 🍽️",
+            'orders':  [],
+        })
+
+    return JsonResponse({'success': True, 'orders': orders})
+
+
+# ──────────────────────────────────────────────────────────────
+# PHASE — SMART REORDER SUGGESTIONS
+# ──────────────────────────────────────────────────────────────
+
+@login_required
+@require_http_methods(['GET'])
+def reorder_suggestions_view(request):
+    """
+    GET /ai/reorder/
+    Returns top 4 previously ordered items that are still available.
+    """
+    from .customer_utils import get_reorder_suggestions
+    role = get_user_role(request.user)
+    if role != 'customer':
+        return JsonResponse({'success': False, 'error': 'Customers only.'}, status=403)
+
+    suggestions = get_reorder_suggestions(request.user, limit=4)
+
+    if not suggestions:
+        return JsonResponse({
+            'success': True,
+            'message': "No reorder suggestions yet — place your first order and we'll remember your favourites! 🧠",
+            'items':   [],
+        })
+
+    return JsonResponse({'success': True, 'items': suggestions})

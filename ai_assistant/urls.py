@@ -8,5 +8,8 @@ urlpatterns = [
     path('status/',              views.assistant_status,        name='ai_status'),
     path('generate-food-item/',  views.generate_food_item_view, name='ai_generate_food_item'),
     path('save-food-item/',      views.save_food_item_view,     name='ai_save_food_item'),
-    path('compare-pricing/',     views.compare_pricing_view,    name='ai_compare_pricing'),  # NEW
+    path('compare-pricing/',     views.compare_pricing_view,    name='ai_compare_pricing'),
+    path('recommend/',           views.recommend_food_view,     name='ai_recommend'),
+    path('orders/',              views.order_tracking_view,     name='ai_orders'),
+    path('reorder/',             views.reorder_suggestions_view, name='ai_reorder'),
 ]

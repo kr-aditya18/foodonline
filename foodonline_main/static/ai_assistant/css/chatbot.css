@@ -835,3 +835,381 @@
 .fgc-img-caption--upload {
   color: #27ae60;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 5 — CUSTOMER FOOD RECOMMENDATION CARDS
+   Append this to the bottom of static/ai_assistant/css/chatbot.css
+═══════════════════════════════════════════════════════════════ */
+
+/* Grid wrapper — scrollable horizontal row on mobile,
+   vertical stack on desktop (chat is narrow anyway)          */
+.foi-rec-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 6px 0 10px 0;
+  width: 100%;
+}
+
+/* Individual card */
+.foi-rec-card {
+  background: var(--foi-surface, #ffffff);
+  border: 1px solid var(--foi-border, #e8ecf0);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.foi-rec-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10);
+}
+
+/* Image area */
+.foi-rec-img-wrap {
+  width: 100%;
+  height: 130px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf0 100%);
+  position: relative;
+}
+
+.foi-rec-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.foi-rec-img-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  color: #c0ccd8;
+  background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+}
+
+/* Card body */
+.foi-rec-body {
+  padding: 10px 12px 6px;
+  flex: 1;
+}
+
+.foi-rec-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--foi-text-primary, #1a202c);
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.foi-rec-vendor {
+  font-size: 11px;
+  color: var(--foi-text-secondary, #718096);
+  margin-bottom: 5px;
+}
+
+.foi-rec-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.foi-rec-category {
+  font-size: 10px;
+  background: var(--foi-chip-bg, #eef2ff);
+  color: var(--foi-primary, #4f46e5);
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-transform: capitalize;
+}
+
+.foi-rec-price {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--foi-primary, #4f46e5);
+}
+
+.foi-rec-desc {
+  font-size: 11px;
+  color: var(--foi-text-secondary, #718096);
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+
+.foi-rec-reason {
+  font-size: 10px;
+  color: #38a169;
+  font-style: italic;
+  margin-top: 2px;
+}
+
+/* Footer — Order Now button */
+.foi-rec-footer {
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--foi-border, #e8ecf0);
+}
+
+.foi-rec-order-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: var(--foi-primary, #4f46e5);
+  color: #ffffff !important;
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 7px 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  transition: background 0.18s ease, transform 0.12s ease;
+}
+
+.foi-rec-order-btn:hover {
+  background: var(--foi-primary-dark, #3730a3);
+  transform: scale(1.02);
+}
+
+/* ── Phase 4 revised — upload prompt zone ── */
+.fgc-img-upload-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 18px 12px;
+  background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%);
+  border: 2px dashed #c7d2fe;
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.fgc-img-upload-icon {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+.fgc-img-upload-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4f46e5;
+  margin-bottom: 4px;
+}
+
+.fgc-img-upload-sub {
+  font-size: 11px;
+  color: #818cf8;
+}
+
+.fgc-btn-upload-primary {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  flex: 2;
+}
+
+.fgc-btn-upload-primary:hover {
+  background: #3730a3 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ORDER TRACKING CARDS
+═══════════════════════════════════════════════════════════════ */
+.foi-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 6px 0 10px;
+  width: 100%;
+}
+
+.foi-order-card {
+  background: var(--foi-surface, #fff);
+  border: 1px solid var(--foi-border, #e8ecf0);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.foi-order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.foi-order-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--foi-text-primary, #1a202c);
+}
+
+.foi-order-status {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
+.foi-order-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--foi-text-secondary, #718096);
+  margin-bottom: 10px;
+}
+
+/* Timeline */
+.foi-order-timeline {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 10px;
+  overflow-x: auto;
+}
+
+.foi-tl-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+}
+
+.foi-tl-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: #e2e8f0;
+  z-index: 0;
+}
+
+.foi-tl-active .foi-tl-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--foi-primary, #4f46e5);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px var(--foi-primary, #4f46e5);
+  z-index: 1;
+  position: relative;
+}
+
+.foi-tl-inactive .foi-tl-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  z-index: 1;
+  position: relative;
+}
+
+.foi-tl-label {
+  font-size: 9px;
+  color: var(--foi-text-secondary, #718096);
+  text-align: center;
+  margin-top: 4px;
+  max-width: 60px;
+  line-height: 1.3;
+}
+
+/* Vendor blocks */
+.foi-order-vendor-block {
+  background: #f8faff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+
+.foi-order-vendor-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--foi-text-primary, #1a202c);
+  margin-bottom: 5px;
+}
+
+.foi-order-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.foi-order-item-pill {
+  font-size: 10px;
+  background: #eef2ff;
+  color: var(--foi-primary, #4f46e5);
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-weight: 600;
+}
+
+.foi-order-contacts {
+  display: flex;
+  gap: 6px;
+}
+
+.foi-order-contact-btn {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--foi-primary, #4f46e5);
+  color: #fff !important;
+  text-decoration: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  transition: background 0.15s;
+}
+
+.foi-order-contact-btn:hover {
+  background: var(--foi-primary-dark, #3730a3);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   REORDER CARDS (extends .foi-rec-card)
+═══════════════════════════════════════════════════════════════ */
+.foi-reorder-card {
+  position: relative;
+}
+
+.foi-reorder-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 2px 8px;
+  z-index: 2;
+}
+
+.foi-reorder-copy-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--foi-primary, #4f46e5);
+  margin-bottom: 2px;
+}
+
+.foi-reorder-copy-sub {
+  font-size: 11px;
+  color: var(--foi-text-secondary, #718096);
+  font-style: italic;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}

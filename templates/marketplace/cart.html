@@ -28,8 +28,12 @@
                                             <li id="cart-item-{{ item.id }}" class="cart-row">
 
                                                 <div class="cart-thumb">
-                                                    <img src="{{ item.fooditems.image.url }}"
-                                                         alt="{{ item.fooditems.food_title }}">
+                                                    {% if item.fooditems.image %}
+                                                      <img src="{{ item.fooditems.image.url }}"
+                                                           alt="{{ item.fooditems.food_title }}">
+                                                    {% else %}
+                                                      <div style="width:60px;height:60px;display:flex;align-items:center;justify-content:center;background:#f0f4f8;border-radius:8px;font-size:24px;">🍽️</div>
+                                                    {% endif %}
                                                 </div>
 
                                                 <div class="cart-info">

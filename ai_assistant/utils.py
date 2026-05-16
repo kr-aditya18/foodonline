@@ -135,7 +135,10 @@ def call_openrouter(messages, role='guest', model=None):
             )
 
             if resp.status_code == 200:
-                data         = resp.json()
+                data = resp.json()
+                if 'choices' not in data:
+                    logger.warning(f"No 'choices' in response from {attempt_model}: {data}")
+                    continue
                 content = data['choices'][0]['message'].get('content') or ''
                 reply = content.strip()
                 if not reply:

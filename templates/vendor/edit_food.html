@@ -57,7 +57,11 @@
                                         <div class="field-holder">
                                             <label >Image *</label>
                                             {{form.image}}
-                                            <img src="{{food.image.url}}" alt="Food-Image" width = 100 class='mt-2'>
+                                            {% if food.image %}
+                                              <img src="{{ food.image.url }}" alt="Food-Image" width="100" class="mt-2">
+                                            {% else %}
+                                              <div style="width:100px;height:70px;display:flex;align-items:center;justify-content:center;background:#f0f4f8;border-radius:6px;font-size:28px;margin-top:8px;">🍽️</div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                     
