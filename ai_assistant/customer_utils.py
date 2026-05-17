@@ -110,11 +110,20 @@ def parse_customer_intent(message: str) -> dict:
     keyword_pool  = []
 
     for mood, keywords in MOOD_TO_KEYWORDS.items():
-        # Check mood word itself OR any of its food keywords in the message
+        # Only match if the mood word itself appears in the message
+        # NOT if its food keywords appear — that caused cross-contamination
+        # e.g. "sweet" should not pull in biryani via the 'happy' mood
         mood_words = mood.replace('_', ' ').split()
-        if any(mw in lower for mw in mood_words) or any(kw in lower for kw in keywords):
+        if any(mw in lower for mw in mood_words):
             matched_moods.append(mood)
             keyword_pool.extend(keywords)
+
+    # If no mood matched but message has direct food keywords, use those
+    if not matched_moods:
+        for mood, keywords in MOOD_TO_KEYWORDS.items():
+            if any(kw in lower for kw in keywords):
+                matched_moods.append(mood)
+                keyword_pool.extend(keywords)
 
     # De-duplicate while preserving order
     seen = set()
@@ -125,15 +134,27 @@ def parse_customer_intent(message: str) -> dict:
             unique_keywords.append(kw)
 
     # ── Is this actually a food request? ─────────────────────────
-    # Treat it as a food request if we matched any mood/keyword,
-    # OR if the message contains direct food/order words.
     FOOD_SIGNAL_WORDS = [
         'food', 'eat', 'hungry', 'order', 'craving', 'want', 'meal',
         'restaurant', 'dish', 'recommend', 'suggest', 'find', 'show',
         'mood', 'feeling', 'feel like', 'something', 'any', 'what',
     ]
     has_food_signal = any(w in lower for w in FOOD_SIGNAL_WORDS)
-    is_food_request = bool(matched_moods) or has_food_signal
+
+    # ── If message looks like a specific dish name, add it directly ──
+    # This prevents "butter chicken" expanding to all creamy/paneer items
+    KNOWN_DISHES = [
+        'butter chicken', 'biryani', 'pizza', 'burger', 'pasta', 'dosa',
+        'idli', 'naan', 'roti', 'paratha', 'dal', 'paneer', 'tikka',
+        'kebab', 'samosa', 'chaat', 'halwa', 'gulab jamun', 'ice cream',
+        'maggi', 'noodle', 'fried rice', 'manchurian', 'momos', 'wrap',
+        'sandwich', 'salad', 'soup', 'curry', 'masala', 'korma', 'pulao',
+    ]
+    for dish in KNOWN_DISHES:
+        if dish in lower and dish not in unique_keywords:
+            unique_keywords.insert(0, dish)  # prioritise exact dish name
+
+    is_food_request = bool(matched_moods) or has_food_signal or any(d in lower for d in KNOWN_DISHES)
 
     return {
         'raw':             message,
@@ -149,29 +170,9 @@ def parse_customer_intent(message: str) -> dict:
 # ══════════════════════════════════════════════════════════════════
 
 def query_food_recommendations(intent: dict, customer_user=None, limit: int = 5) -> list:
-    """
-    Query available FoodItems based on parsed intent keywords.
-    Optionally biases toward vendors in the customer's city.
-
-    Returns a list of dicts (serialisable, safe for JSON response):
-    [
-      {
-        'id':          int,
-        'food_title':  str,
-        'description': str,
-        'price':       float,
-        'category':    str,
-        'vendor_name': str,
-        'vendor_id':   int,
-        'image_url':   str | None,
-        'slug':        str,
-        'match_reason': str,   # human-readable why this was picked
-      },
-      ...
-    ]
-    """
     keywords = intent.get('keywords', [])
     dietary  = intent.get('dietary')
+    raw      = intent.get('raw', '').strip()
 
     # ── Base queryset — only approved vendors, available items ───
     qs = FoodItem.objects.filter(
@@ -179,10 +180,30 @@ def query_food_recommendations(intent: dict, customer_user=None, limit: int = 5)
         vendor__is_approved=True,
     ).select_related('vendor', 'category')
 
-    # ── Keyword filter (OR across food_title + description) ──────
-    if keywords:
+    # ── Try exact phrase match first (e.g. "butter chicken") ────
+    # If the raw message directly matches food titles, prioritise those
+    exact_qs = None
+    if raw and len(raw) > 3:
+        raw_words = [w for w in raw.lower().split() if len(w) > 2]
+        # Build a phrase query using the full raw text
+        exact_q = Q(food_title__icontains=raw)
+        # Also try 2-word combinations from the message
+        for i in range(len(raw_words) - 1):
+            phrase = raw_words[i] + ' ' + raw_words[i+1]
+            if len(phrase) > 5:
+                exact_q |= Q(food_title__icontains=phrase)
+        exact_qs = qs.filter(exact_q)
+
+    # If exact matches found, use those directly (skip broad keyword pool)
+    if exact_qs is not None and exact_qs.exists():
+        qs = exact_qs
+    elif keywords:
+        # ── Fallback: mood keyword filter ───────────────────────
+        # Use only the MOST specific keywords (first 5, not all 10+)
+        # to avoid pulling in unrelated items
+        specific_kws = keywords[:5]
         kw_q = Q()
-        for kw in keywords[:10]:   # cap at 10 to keep the query sane
+        for kw in specific_kws:
             kw_q |= Q(food_title__icontains=kw) | Q(description__icontains=kw)
         qs = qs.filter(kw_q)
 
@@ -557,6 +578,140 @@ def _serialize_vendor(vendor, distance_str=''):
 # ══════════════════════════════════════════════════════════════════
 # PROACTIVE DEAL NUDGE
 # ══════════════════════════════════════════════════════════════════
+
+def recommend_by_ratings_query(mood, veg_pref, min_rating, customer_user=None, limit=5):
+    """
+    Chatbot follow-up recommendation using mood + veg + min avg_rating.
+    Returns enriched list with avg_rating, review_count, top_review snippet.
+    """
+    from django.db.models import Avg, Count, Q
+    from ai_assistant.models import FoodReview
+
+    # Build keyword pool from mood
+    keywords = []
+    if mood:
+        lower = mood.lower()
+        for mood_key, kws in MOOD_TO_KEYWORDS.items():
+            if mood_key in lower or any(k in lower for k in kws):
+                keywords.extend(kws)
+
+    # Deduplicate
+    seen = set()
+    unique_kws = [k for k in keywords if not (k in seen or seen.add(k))]
+
+    qs = FoodItem.objects.filter(
+        is_available=True,
+        vendor__is_approved=True,
+    ).select_related('vendor', 'category').annotate(
+        avg_rating=Avg('reviews__rating', filter=Q(reviews__is_visible=True)),
+        review_count=Count('reviews', filter=Q(reviews__is_visible=True)),
+    )
+
+    # Keyword filter
+    if unique_kws:
+        kw_q = Q()
+        for kw in unique_kws[:10]:
+            kw_q |= Q(food_title__icontains=kw) | Q(description__icontains=kw)
+        qs = qs.filter(kw_q)
+
+    # Veg filter using category name
+    if veg_pref == 'veg':
+        qs = qs.filter(
+            Q(food_title__icontains='veg') | Q(description__icontains='veg') |
+            Q(category__category_name__icontains='veg')
+        ).exclude(
+            Q(food_title__icontains='chicken') | Q(food_title__icontains='mutton') |
+            Q(food_title__icontains='fish') | Q(food_title__icontains='prawn') |
+            Q(food_title__icontains='egg')
+        )
+    elif veg_pref == 'nonveg':
+        qs = qs.filter(
+            Q(food_title__icontains='chicken') | Q(food_title__icontains='mutton') |
+            Q(food_title__icontains='fish') | Q(food_title__icontains='prawn') |
+            Q(food_title__icontains='egg') | Q(food_title__icontains='meat')
+        )
+
+    # Rating filter
+    if min_rating and min_rating > 0:
+        # Only include items that HAVE reviews AND meet the minimum rating
+        qs = qs.filter(review_count__gt=0, avg_rating__gte=min_rating)
+    else:
+        # "Any rating" — include everything, sort reviewed items first
+        from django.db.models.functions import Coalesce
+        from django.db.models import Value, DecimalField
+        qs = qs.annotate(
+            safe_rating=Coalesce(
+                'avg_rating',
+                Value(0.0, output_field=DecimalField(max_digits=3, decimal_places=1))
+            )
+        ).order_by('-safe_rating')
+
+    # City bias
+    customer_city = _get_customer_city(customer_user)
+    if customer_city:
+        city_vendor_ids = UserProfile.objects.filter(
+            city__icontains=customer_city.split()[-1]
+        ).values_list('user_id', flat=True)
+        city_qs  = qs.filter(vendor__user_id__in=city_vendor_ids)
+        other_qs = qs.exclude(vendor__user_id__in=city_vendor_ids)
+        items = list(city_qs[:limit]) + list(other_qs[:limit])
+        seen_ids = set()
+        deduped  = []
+        for item in items:
+            if item.id not in seen_ids:
+                seen_ids.add(item.id)
+                deduped.append(item)
+        final_items = deduped[:limit]
+    else:
+        from django.db.models.functions import Coalesce
+        from django.db.models import Value, DecimalField
+        final_items = list(
+            qs.order_by(
+                Coalesce(
+                    'avg_rating',
+                    Value(0.0, output_field=DecimalField(max_digits=3, decimal_places=1))
+                ).desc()
+            )[:limit]
+        )
+
+    # Get top review snippet per item
+    review_map = {}
+    item_ids = [i.id for i in final_items]
+    from ai_assistant.models import FoodReview
+    for review in FoodReview.objects.filter(
+        food_item_id__in=item_ids, is_visible=True, comment__gt=''
+    ).order_by('-rating')[:limit * 2]:
+        if review.food_item_id not in review_map:
+            review_map[review.food_item_id] = review.comment[:80]
+
+    results = []
+    for item in final_items:
+        image_url = None
+        if item.image:
+            try:
+                image_url = item.image.url
+            except Exception:
+                pass
+
+        avg = item.avg_rating
+        results.append({
+            'id':           item.id,
+            'food_title':   item.food_title,
+            'description':  item.description or '',
+            'price':        float(item.price),
+            'category':     item.category.category_name if item.category else '',
+            'vendor_name':  item.vendor.vendor_name,
+            'vendor_id':    item.vendor.id,
+            'vendor_slug':  item.vendor.vendor_slug,
+            'image_url':    image_url,
+            'slug':         item.slug,
+            'avg_rating':   round(float(avg), 1) if avg else 0.0,
+            'review_count': item.review_count or 0,
+            'top_review':   review_map.get(item.id, ''),
+        })
+
+    return results
+
 
 def get_proactive_nudge(user):
     """

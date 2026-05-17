@@ -15,7 +15,7 @@ from django.utils import timezone
 import json
 from .models import OpeningHour, DAYS, HOUR_OF_DAY_24
 from orders.models import Order, OrderedFood
-
+from ai_assistant.models import FoodReview
 
 def get_vendor(request):
     vendor = Vendor.objects.get(user=request.user)
@@ -69,11 +69,6 @@ def vendordashboard(request):
     }
     return render(request, 'accounts/vendordashboard.html', context)
 
-
-# ─────────────────────────────────────────────
-# Lesson 207 — Vendor Order Detail
-# ─────────────────────────────────────────────
-
 @login_required(login_url='login')
 @user_passes_test(check_role_vendor)
 def vendor_order_detail(request, order_number):
@@ -85,18 +80,23 @@ def vendor_order_detail(request, order_number):
         is_ordered=True,
     )
     ordered_food = OrderedFood.objects.filter(order=order, fooditem__vendor=vendor)
-
-    # Lesson 211: subtotal via middleware helper OR direct aggregate
     subtotal = ordered_food.aggregate(total=Sum('amount'))['total'] or 0
 
+    # Phase 9 — reviewed item IDs (vendor view: all reviews for this order)
+    reviewed_item_ids = set(
+        FoodReview.objects.filter(
+            order=order
+        ).values_list('order_item_id', flat=True)
+    )
+
     context = {
-        'order':        order,
-        'ordered_food': ordered_food,
-        'subtotal':     subtotal,
-        'vendor':       vendor,
+        'order':             order,
+        'ordered_food':      ordered_food,
+        'subtotal':          subtotal,
+        'vendor':            vendor,
+        'reviewed_item_ids': reviewed_item_ids,   # ← ADD THIS
     }
     return render(request, 'orders/vendor_order_detail.html', context)
-
 
 # ─────────────────────────────────────────────
 # Lesson 214 — Vendor My Orders (all orders)

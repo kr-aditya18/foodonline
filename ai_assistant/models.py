@@ -93,7 +93,11 @@ class AIInteractionLog(models.Model):
         ('order_track', 'Order Tracking'),
         ('reorder',     'Reorder Suggestions'),
         ('nearby',      'Nearby Restaurants'),
-        ('vendor_info', 'Vendor Info'),
+        ('vendor_info',    'Vendor Info'),
+        ('review_submit',  'Review Submission'),
+        ('review_nudge',   'Review Nudge'),
+        ('recommend_rated','Rated Recommendations'),
+        ('onboarding',     'Onboarding Tour'),
     ]
 
     # Who
@@ -137,16 +141,10 @@ class AIInteractionLog(models.Model):
 
 
 class RateLimitBucket(models.Model):
-    """
-    Simple DB-backed rate limit counter.
-    One row per (identifier × window).
-    identifier = user_id for auth users, IP for guests.
-    window     = 'minute' or 'day'
-    """
-    identifier = models.CharField(max_length=128)   # "user_42" or "ip_1.2.3.4"
-    window     = models.CharField(max_length=10)     # 'minute' | 'day'
+    identifier = models.CharField(max_length=128)
+    window     = models.CharField(max_length=10)
     count      = models.PositiveIntegerField(default=0)
-    reset_at   = models.DateTimeField()              # when this window expires
+    reset_at   = models.DateTimeField()
 
     class Meta:
         unique_together     = ('identifier', 'window')
@@ -155,3 +153,70 @@ class RateLimitBucket(models.Model):
 
     def __str__(self):
         return f"{self.identifier} [{self.window}] — {self.count} hits, resets {self.reset_at}"
+
+
+# ══════════════════════════════════════════════════════════════════
+# REVIEW SYSTEM
+# ══════════════════════════════════════════════════════════════════
+
+from django.core.validators import MinValueValidator, MaxValueValidator
+
+class FoodReview(models.Model):
+    customer   = models.ForeignKey(User, on_delete=models.CASCADE, related_name='food_reviews')
+    food_item  = models.ForeignKey('menu.FoodItem', on_delete=models.CASCADE, related_name='reviews')
+    order      = models.ForeignKey('orders.Order', on_delete=models.CASCADE)
+    order_item = models.ForeignKey('orders.OrderedFood', on_delete=models.CASCADE)
+    rating     = models.DecimalField(
+                     max_digits=2, decimal_places=1,
+                     validators=[MinValueValidator(0.5), MaxValueValidator(5.0)]
+                 )
+    comment    = models.TextField(blank=True, max_length=500)
+    image      = models.ImageField(upload_to='review_images/', blank=True, null=True)
+    is_verified_purchase = models.BooleanField(default=True)
+    is_visible = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('customer', 'order_item')
+        ordering        = ['-created_at']
+        verbose_name        = 'Food Review'
+        verbose_name_plural = 'Food Reviews'
+
+    def __str__(self):
+        return f"{self.customer.email} → {self.food_item.food_title} ({self.rating}★)"
+
+
+class ReviewReminder(models.Model):
+    customer     = models.ForeignKey(User, on_delete=models.CASCADE, related_name='review_reminders')
+    order_item   = models.ForeignKey('orders.OrderedFood', on_delete=models.CASCADE)
+    is_dismissed = models.BooleanField(default=False)
+    reminded_at  = models.DateTimeField(null=True, blank=True)
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('customer', 'order_item')
+        verbose_name        = 'Review Reminder'
+        verbose_name_plural = 'Review Reminders'
+
+    def __str__(self):
+        return f"Reminder: {self.customer.email} → {self.order_item.fooditem.food_title}"
+
+
+# ══════════════════════════════════════════════════════════════════
+# ONBOARDING TOUR
+# ══════════════════════════════════════════════════════════════════
+
+class OnboardingTour(models.Model):
+    user           = models.OneToOneField(User, on_delete=models.CASCADE, related_name='onboarding')
+    tour_completed = models.BooleanField(default=False)
+    tour_step      = models.PositiveSmallIntegerField(default=0)
+    completed_at   = models.DateTimeField(null=True, blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = 'Onboarding Tour'
+        verbose_name_plural = 'Onboarding Tours'
+
+    def __str__(self):
+        return f"{self.user.email} — step {self.tour_step} {'✅' if self.tour_completed else '⏳'}"

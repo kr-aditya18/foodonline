@@ -1,44 +1,6 @@
-/**
- * FILE LOCATION:
- *   foodonline_main/static/ai_assistant/js/chatbot.js
- *
- * FoodOnline AI Assistant — Chat Widget Logic
- *
- * STRUCTURE DEPENDENCY:
- *   #foi-messages
- *     └── #foi-typing        ← typing indicator is a CHILD of #foi-messages
- *         └── .foi-bubble
- *   New message bubbles are inserted via insertBefore(wrapper, typingEl)
- *   so typing dots always stay at the very bottom.
- *
- * IMAGE GENERATION (tried in order, silent fallback on failure):
- *   1. Pollinations.ai  — AI food photo, unique seed every call
- *   2. Foodish API      — real food photos, keyword-matched, no key needed
- *   3. Canvas           — local JS render, zero network, NEVER fails
- *
- * IMAGE UPLOAD (Phase 4 addition):
- *   Vendor can manually upload their own photo if AI result doesn't match.
- *   Accepts image/*, max 5 MB, read as base64 DataURL and stored in
- *   card.dataset.imageUrl — same field saveFoodCard already reads,
- *   so NO backend changes are needed.
- */
-
 (function () {
   'use strict';
 
-  /* ══════════════════════════════════════════════════════════════
-     IMAGE PROVIDERS
-     Each function(title, desc, attempt) returns Promise<string>.
-     `attempt` increments on every "Change Image" click so each
-     provider can vary output without repeating the same image.
-     Provider 3 (Canvas) ALWAYS resolves — it is the final net.
-  ══════════════════════════════════════════════════════════════ */
-
-  /* ── 1. Pollinations.ai ────────────────────────────────────────
-     AI-generated food photo. Seed = timestamp + attempt + random
-     so every call — including retries — is a genuinely fresh request
-     that bypasses browser cache and Pollinations' own dedup logic.
-  ─────────────────────────────────────────────────────────────── */
   function providerPollinations(title, desc, attempt) {
     return new Promise(function (resolve, reject) {
       var prompt = encodeURIComponent(
@@ -65,11 +27,7 @@
     });
   }
 
-  /* ── 2. Foodish API ────────────────────────────────────────────
-     Real food photos from foodish-api.com — free, no key, CORS-open.
-     Maps dish keywords → API categories for relevance.
-     Each call fetches a random image, so retries give fresh results.
-  ─────────────────────────────────────────────────────────────── */
+  // -- 2. Foodish API ────────────────────────────────────────────
   function providerFoodish(title) {
     return new Promise(function (resolve, reject) {
       var MAP = [
@@ -115,11 +73,8 @@
     });
   }
 
-  /* ── 3. Canvas — local, zero network, NEVER rejects ───────────
-     Draws a styled gradient tile with food emoji + title text.
-     `attempt` rotates the colour palette so "Change Image" gives
-     a visually different result even for the same dish name.
-  ─────────────────────────────────────────────────────────────── */
+  //-- 3. Canvas — local, zero network, NEVER rejects 
+
   function providerCanvas(title, attempt) {
     return new Promise(function (resolve) {
       var canvas = document.createElement('canvas');
@@ -223,11 +178,8 @@
     });
   }
 
-  /* ══════════════════════════════════════════════════════════════
-     PROVIDER CHAIN RUNNER
-     Tries providers 1 → 2 → 3 in sequence, stopping at first
-     success. Logs failures to console (dev-visible, user-invisible).
-  ══════════════════════════════════════════════════════════════ */
+  //    PROVIDER CHAIN RUNNER
+  
   function tryImageProviders(title, desc, attempt) {
     var PROVIDERS = [
       { name: 'Pollinations', fn: function () { return providerPollinations(title, desc, attempt); } },
@@ -281,13 +233,15 @@
   var IS_AUTH         = cfg.dataset.authenticated === 'true';
   var INITIAL_ROLE    = cfg.dataset.role || 'guest';
 
-  var sessionKey     = localStorage.getItem('foi_session_key') || '';
+  var sessionKey     = sessionStorage.getItem('foi_session_key') || '';
   var isOpen         = false;
   var isTyping       = false;
   var currentRole    = INITIAL_ROLE;
   var recognition    = null;
   var isListening    = false;
   var preferredVoice = null;
+  var nudgeShown       = false;
+  var chatAlreadyOpened = false;
 
   var fab          = document.getElementById('foi-fab');
   var fabDot       = document.getElementById('foi-fab-dot');
@@ -323,7 +277,7 @@
     customer: {
       label:   'Customer',
       welcome: "🍕 Hey there, foodie! Tell me what you're craving or how you're feeling and I'll find the perfect meal for you. What sounds good today?",
-      chips:   ["I'm feeling spicy 🌶️", "Something healthy 🥗", "Track my orders 📦", "Reorder favourites 🔄"],
+      chips:   ["Comfort food 🛋️", "Something spicy 🌶️", "Healthy & light 🥗", "Something sweet 🍰", "Restaurants near me 🗺️", "Track my orders 📦"],
     },
     guest: {
       label:   'Guest',
@@ -361,6 +315,8 @@
   /* ══════════════════════════════════════════════════════════════
      INIT
   ══════════════════════════════════════════════════════════════ */
+  var pendingReviewData = null;
+
   function init() {
     renderRoleBadge(currentRole);
     showWelcome(currentRole);
@@ -369,6 +325,21 @@
     fetchStatus();
     restoreHistory();
     setTimeout(function () { if (!isOpen) fabDot.style.display = 'block'; }, 3000);
+    if (IS_AUTH && currentRole === 'customer') {
+      checkPendingReviews();
+      checkOnboardingTour();
+    }
+  }
+
+  function checkPendingReviews() {
+    fetch('/ai/reviews/pending/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success && data.pending_count > 0) {
+        pendingReviewData = data;
+      }
+    })
+    .catch(function() {});
   }
 
   function fetchStatus() {
@@ -442,6 +413,12 @@
     fabDot.style.display = 'none';
     setTimeout(function () { inputEl.focus(); }, 300);
     scrollBottom();
+    if (!chatAlreadyOpened) {
+      chatAlreadyOpened = true;
+      triggerNudge();
+      triggerReviewNudge();
+      maybeStartTour();
+    }
   }
   function closeChat() {
     isOpen = false;
@@ -474,6 +451,34 @@
     'my usual', 'what i ordered', 'order my usual', 'reorder favourites',
     'order favourites',
   ];
+  var REVIEW_TRIGGERS = [
+    'review', 'rate my', 'rating', 'my feedback', 'leave review',
+    'give review', 'write review', 'pending review', 'unreviewed',
+  ];
+  var MOOD_RATING_TRIGGERS = [
+    'comfort food', 'comfort', 'cozy', 'feeling spicy', 'healthy & light',
+    'something sweet', 'something spicy', 'something healthy', 'something light',
+    'something heavy', 'midnight snack', 'party food',
+  ];
+
+  var NEARBY_TRIGGERS = [
+    'nearby', 'near me', 'restaurants near', 'find restaurant',
+    'show restaurant', 'what restaurant', 'restaurants around',
+    'food near', 'places near', 'find food', 'discover restaurant',
+    'browse restaurant', 'all restaurant', 'available restaurant',
+  ];
+
+  function isReviewRequest(text) {
+    if (currentRole !== 'customer') return false;
+    var lower = text.toLowerCase();
+    return REVIEW_TRIGGERS.some(function(kw) { return lower.indexOf(kw) !== -1; });
+  }
+
+  function isMoodRatingRequest(text) {
+    if (currentRole !== 'customer') return false;
+    var lower = text.toLowerCase();
+    return MOOD_RATING_TRIGGERS.some(function(kw) { return lower.indexOf(kw) !== -1; });
+  }
 
   function isOrderTrackRequest(text) {
     if (currentRole !== 'customer') return false;
@@ -484,6 +489,11 @@
     if (currentRole !== 'customer') return false;
     var lower = text.toLowerCase();
     return REORDER_TRIGGERS.some(function (kw) { return lower.indexOf(kw) !== -1; });
+  }
+  function isNearbyRequest(text) {
+    if (currentRole === 'vendor') return false;
+    var lower = text.toLowerCase();
+    return NEARBY_TRIGGERS.some(function (kw) { return lower.indexOf(kw) !== -1; });
   }
   function isFoodGenRequest(text) {
     if (currentRole !== 'vendor') return false;
@@ -516,6 +526,20 @@
     var text = (overrideText !== undefined ? overrideText : inputEl.value).trim();
     if (!text || isTyping) return;
 
+    if (currentRole === 'customer' && isReviewRequest(text)) {
+      inputEl.value = ''; inputEl.style.height = 'auto';
+      appendMessage('user', text);
+      suggsEl.style.display = 'none';
+      triggerReviewFlow();
+      return;
+    }
+    if (currentRole === 'customer' && isMoodRatingRequest(text)) {
+      inputEl.value = ''; inputEl.style.height = 'auto';
+      appendMessage('user', text);
+      suggsEl.style.display = 'none';
+      triggerMoodRatingFlow(text);
+      return;
+    }
     if (currentRole === 'vendor' && isCompareRequest(text)) {
       inputEl.value = ''; inputEl.style.height = 'auto';
       appendMessage('user', text);
@@ -535,6 +559,13 @@
       appendMessage('user', text);
       suggsEl.style.display = 'none';
       triggerReorderSuggestions();
+      return;
+    }
+    if (isNearbyRequest(text)) {
+      inputEl.value = ''; inputEl.style.height = 'auto';
+      appendMessage('user', text);
+      suggsEl.style.display = 'none';
+      triggerNearbyRestaurants();
       return;
     }
     if (currentRole === 'customer' && isFoodRecommendRequest(text)) {
@@ -568,10 +599,15 @@
     .then(function (data) {
       setTyping(false);
       sendBtn.disabled = false;
+      if (data.rate_limited) {
+        appendMessage('bot', data.error || '⏳ Too many messages. Please slow down!');
+        showRoleChips();
+        return;
+      }
       if (data.success) {
         if (data.session_key) {
           sessionKey = data.session_key;
-          localStorage.setItem('foi_session_key', sessionKey);
+          sessionStorage.setItem('foi_session_key', sessionKey);
         }
         appendMessage('bot', data.reply);
         speakReply(data.reply);
@@ -634,12 +670,15 @@
       }).catch(function () {});
     }
     sessionKey = '';
-    localStorage.removeItem('foi_session_key');
+    sessionStorage.removeItem('foi_session_key');
+    sessionStorage.removeItem('review_nudge_shown');
     Array.prototype.slice.call(msgContainer.children).forEach(function (c) {
       if (c.id !== 'foi-typing') msgContainer.removeChild(c);
     });
     typingEl.style.display = 'none';
     suggsEl.style.display  = 'flex';
+    nudgeShown        = false;
+    chatAlreadyOpened = false;
     showWelcome(currentRole);
     renderChips(currentRole);
   }
@@ -653,11 +692,15 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.success && data.messages && data.messages.length > 0) {
+          /* Clear welcome message before restoring */
           Array.prototype.slice.call(msgContainer.children).forEach(function (c) {
             if (c.id !== 'foi-typing') msgContainer.removeChild(c);
           });
           data.messages.forEach(function (m) { appendMessage(m.role, m.content); });
-          suggsEl.style.display = 'none';
+          suggsEl.style.display = 'flex';
+          renderChips(currentRole);
+          /* Mark as already opened so nudge/tour don't re-fire */
+          chatAlreadyOpened = true;
         }
       })
       .catch(function () {});
@@ -1206,6 +1249,199 @@
   /* ══════════════════════════════════════════════════════════════
      HTML ESCAPE HELPER
   ══════════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     PHASE 7 — ADD TO CART (AJAX)
+  ══════════════════════════════════════════════════════════════ */
+  function addToCart(foodId, btn) {
+    btn.disabled    = true;
+    btn.textContent = '⏳ Adding…';
+
+    fetch('/marketplace/add_to_cart/' + foodId + '/', {
+      method:  'GET',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') },
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.status === 'login_required') {
+        btn.disabled    = false;
+        btn.textContent = '🛒 Add to Cart';
+        appendMessage('bot', '🔐 Please log in to add items to your cart!');
+        return;
+      }
+      if (data.status === 'restaurant_closed') {
+        btn.disabled    = false;
+        btn.textContent = '🛒 Add to Cart';
+        appendMessage('bot', '🚫 This restaurant is currently closed. Try again when they open!');
+        return;
+      }
+      if (data.status === 'success') {
+        /* Update cart counter badge in navbar */
+        var counter = document.querySelector('.cart_counter');
+        if (counter && data.cart_counter) {
+          counter.textContent = data.cart_counter['cart_count'] || 0;
+        }
+        /* Get current quantity from data or default to 1 */
+        var qty = (data.cart_counter && data.cart_counter['cart_count']) ? 1 : 1;
+        renderCartControls(btn, foodId, qty);
+      } else {
+        btn.disabled    = false;
+        btn.textContent = '🛒 Add to Cart';
+        appendMessage('bot', '⚠️ ' + (data.message || 'Could not add to cart. Please try again.'));
+      }
+    })
+    .catch(function () {
+      btn.disabled    = false;
+      btn.textContent = '🛒 Add to Cart';
+      appendMessage('bot', '❌ Connection error. Please try again.');
+    });
+  }
+
+  function renderCartControls(btn, foodId, qty) {
+    /* Replace the Add to Cart button with +/- controls inline */
+    var footer = btn.parentElement;
+    var ctrl = document.createElement('div');
+    ctrl.className = 'foi-cart-ctrl';
+    ctrl.dataset.foodId = foodId;
+    ctrl.dataset.qty = qty;
+
+    ctrl.innerHTML = [
+      '<button class="foi-cart-minus" type="button">−</button>',
+      '<span class="foi-cart-qty">' + qty + '</span>',
+      '<button class="foi-cart-plus" type="button">+</button>',
+    ].join('');
+
+    footer.replaceChild(ctrl, btn);
+
+    ctrl.querySelector('.foi-cart-plus').addEventListener('click', function() {
+      fetch('/marketplace/add_to_cart/' + foodId + '/', {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') },
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status === 'success') {
+          var newQty = parseInt(ctrl.dataset.qty) + 1;
+          ctrl.dataset.qty = newQty;
+          ctrl.querySelector('.foi-cart-qty').textContent = newQty;
+          var counter = document.querySelector('.cart_counter');
+          if (counter && data.cart_counter) counter.textContent = data.cart_counter['cart_count'] || 0;
+        }
+      })
+      .catch(function() {});
+    });
+
+    ctrl.querySelector('.foi-cart-minus').addEventListener('click', function() {
+      fetch('/marketplace/decrease_cart/' + foodId + '/', {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') },
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status === 'success' || data.status === 'removed') {
+          var newQty = parseInt(ctrl.dataset.qty) - 1;
+          var counter = document.querySelector('.cart_counter');
+          if (counter && data.cart_counter) counter.textContent = data.cart_counter['cart_count'] || 0;
+          if (newQty <= 0) {
+            /* Restore Add to Cart button */
+            var newBtn = document.createElement('button');
+            newBtn.className = 'foi-rec-order-btn foi-rec-btn-primary foi-add-cart-btn';
+            newBtn.dataset.foodId = foodId;
+            newBtn.textContent = '🛒 Add to Cart';
+            newBtn.addEventListener('click', function() {
+              if (!IS_AUTH) { appendMessage('bot', '🔐 Please log in to add items to your cart!'); return; }
+              addToCart(foodId, newBtn);
+            });
+            footer.replaceChild(newBtn, ctrl);
+          } else {
+            ctrl.dataset.qty = newQty;
+            ctrl.querySelector('.foi-cart-qty').textContent = newQty;
+          }
+        }
+      })
+      .catch(function() {});
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     PHASE 7 — VENDOR CONTACT INFO PANEL
+  ══════════════════════════════════════════════════════════════ */
+  function triggerVendorInfo(vendorId, vendorName, card) {
+    /* Toggle: if panel already open, close it */
+    var existing = card.querySelector('.foi-vendor-info-panel');
+    if (existing) {
+      existing.remove();
+      return;
+    }
+
+    var panel = document.createElement('div');
+    panel.className = 'foi-vendor-info-panel';
+    panel.innerHTML = '<div class="foi-vendor-info-loading">⏳ Loading contact info…</div>';
+    card.appendChild(panel);
+    scrollBottom();
+
+    fetch('/ai/vendor-info/' + vendorId + '/', { method: 'GET' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.success) {
+        panel.innerHTML = '<div class="foi-vendor-info-error">❌ Could not load info.</div>';
+        return;
+      }
+      var v = data.vendor;
+
+      /* Open/closed badge */
+      var statusBadge = v.is_open
+        ? '<span class="foi-vi-open">🟢 Open Now</span>'
+        : '<span class="foi-vi-closed">🔴 Closed Now</span>';
+
+      /* Contact rows */
+      var contactRows = '';
+      if (v.phone) {
+        contactRows += '<a class="foi-vi-row" href="tel:' + escHtml(v.phone) + '">' +
+          '<span class="foi-vi-icon">📞</span><span>' + escHtml(v.phone) + '</span></a>';
+      }
+      if (v.email) {
+        contactRows += '<a class="foi-vi-row" href="mailto:' + escHtml(v.email) + '">' +
+          '<span class="foi-vi-icon">✉️</span><span>' + escHtml(v.email) + '</span></a>';
+      }
+      if (v.address) {
+        var fullAddr = [v.address, v.city, v.state, v.pincode].filter(Boolean).join(', ');
+        contactRows += '<div class="foi-vi-row">' +
+          '<span class="foi-vi-icon">📍</span><span>' + escHtml(fullAddr) + '</span></div>';
+      }
+
+      /* Opening hours */
+      var hoursRows = '';
+      if (v.hours && v.hours.length) {
+        hoursRows = '<div class="foi-vi-section-title">🕐 Opening Hours</div>';
+        v.hours.forEach(function (h) {
+          hoursRows += '<div class="foi-vi-hours-row">' +
+            '<span class="foi-vi-day">' + escHtml(h.day) + '</span>' +
+            '<span class="foi-vi-time">' +
+              (h.is_closed ? '<em>Closed</em>' : escHtml(h.from_hour) + ' – ' + escHtml(h.to_hour)) +
+            '</span>' +
+          '</div>';
+        });
+      }
+
+      panel.innerHTML = [
+        '<div class="foi-vi-header">',
+        '  <strong>' + escHtml(v.name) + '</strong>',
+        '  ' + statusBadge,
+        '</div>',
+        '<div class="foi-vi-contacts">' + (contactRows || '<em>No contact info available</em>') + '</div>',
+        hoursRows ? '<div class="foi-vi-hours">' + hoursRows + '</div>' : '',
+        '<div class="foi-vi-footer">',
+        '  <a class="foi-vendor-btn" href="/marketplace/' + escHtml(v.slug) + '/" target="_blank">🛒 View Full Menu</a>',
+        '</div>',
+      ].join('');
+
+      scrollBottom();
+    })
+    .catch(function () {
+      panel.innerHTML = '<div class="foi-vendor-info-error">❌ Connection error.</div>';
+    });
+  }
+
   function escHtml(str) {
     return String(str || '')
       .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
@@ -1282,8 +1518,8 @@ function renderPostCardChips(savedTitle, savedCategory) {
     var CUSTOMER_CHIPS = [
       "I'm feeling spicy 🌶️",
       "Something healthy 🥗",
+      "Restaurants near me 🗺️",
       "Track my orders 📦",
-      "Reorder favourites 🔄",
     ];
     var VENDOR_CHIPS = [
       'Generate a food item 🍱',
@@ -1315,6 +1551,637 @@ function renderPostCardChips(savedTitle, savedCategory) {
       });
       suggsEl.appendChild(btn);
     });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     REVIEW NUDGE
+  ══════════════════════════════════════════════════════════════ */
+  function triggerReviewNudge() {
+    if (!IS_AUTH || currentRole !== 'customer') return;
+    if (sessionStorage.getItem('review_nudge_shown')) return;
+    if (!pendingReviewData || !pendingReviewData.pending_count) return;
+
+    sessionStorage.setItem('review_nudge_shown', 'true');
+    var count = pendingReviewData.pending_count;
+    var msg = count === 1
+      ? '⭐ Hey! You have 1 unreviewed dish from a recent order. Want to rate it?'
+      : '⭐ Hey! You have ' + count + ' unreviewed dishes from recent orders. Share your experience?';
+
+    setTimeout(function() {
+      appendNudgeMessage(msg);
+      renderReviewNudgeChips(pendingReviewData.items);
+    }, 1400);
+  }
+
+  function renderReviewNudgeChips(items) {
+    suggsEl.innerHTML = '';
+    suggsEl.style.display = 'flex';
+    var btn1 = document.createElement('button');
+    btn1.className   = 'foi-chip foi-chip-review';
+    btn1.textContent = '⭐ Review now';
+    btn1.addEventListener('click', function() {
+      suggsEl.innerHTML = '';
+      triggerReviewFlow();
+    });
+    var btn2 = document.createElement('button');
+    btn2.className   = 'foi-chip';
+    btn2.textContent = 'Maybe later';
+    btn2.addEventListener('click', function() {
+      suggsEl.innerHTML = '';
+      suggsEl.style.display = 'none';
+      // Only snooze for this session — don't dismiss in DB
+      // so the nudge comes back next session
+      sessionStorage.setItem('review_nudge_shown', 'true');
+      appendMessage('bot', "No worries! You can review anytime from your order history 😊");
+      showRoleChips();
+    });
+    suggsEl.appendChild(btn1);
+    suggsEl.appendChild(btn2);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     REVIEW FLOW
+  ══════════════════════════════════════════════════════════════ */
+  function triggerReviewFlow() {
+    if (!pendingReviewData || !pendingReviewData.items || !pendingReviewData.items.length) {
+      appendMessage('bot', "You don't have any pending reviews right now. Order something and come back! 🍽️");
+      showRoleChips();
+      return;
+    }
+    appendMessage('bot', '📝 Here are your unreviewed dishes. Tap one to rate it:');
+    appendReviewItemList(pendingReviewData.items);
+  }
+
+  function appendReviewItemList(items) {
+    var wrap = document.createElement('div');
+    wrap.className = 'foi-review-list';
+
+    items.forEach(function(item) {
+      var card = document.createElement('div');
+      card.className = 'foi-review-item-card';
+      card.innerHTML = [
+        '<div class="foi-review-item-info">',
+        '  <div class="foi-review-item-title">' + escHtml(item.food_title) + '</div>',
+        '  <div class="foi-review-item-vendor">🏪 ' + escHtml(item.vendor_name) + ' · #' + escHtml(item.order_number) + '</div>',
+        '</div>',
+        '<button class="foi-review-start-btn" data-order-item-id="' + item.order_item_id + '" data-food-title="' + escHtml(item.food_title) + '">',
+        '  ⭐ Rate',
+        '</button>',
+      ].join('');
+
+      card.querySelector('.foi-review-start-btn').addEventListener('click', function(e) {
+        var btn = e.currentTarget;
+        openReviewModal(
+          parseInt(btn.dataset.orderItemId),
+          btn.dataset.foodTitle,
+          card
+        );
+      });
+      wrap.appendChild(card);
+    });
+
+    msgContainer.insertBefore(wrap, typingEl);
+    scrollBottom();
+  }
+
+  window.foiOpenReviewModal = openReviewModal;
+  function openReviewModal(orderItemId, foodTitle, sourceCard) {
+    /* Remove any existing modal first */
+    var existing = msgContainer.querySelector('.foi-review-modal');
+    if (existing) existing.remove();
+
+    var modal = document.createElement('div');
+    modal.className = 'foi-review-modal';
+    modal.dataset.orderItemId = orderItemId;
+
+    modal.innerHTML = [
+      '<div class="foi-review-modal-header">',
+      '  <span>Rate: <strong>' + escHtml(foodTitle) + '</strong></span>',
+      '  <button class="foi-review-modal-close" type="button">✕</button>',
+      '</div>',
+
+      /* Half-star picker */
+      '<div class="foi-star-picker" data-rating="0">',
+      [1,2,3,4,5].map(function(n) {
+        return '<span class="foi-star-wrap" data-value="' + n + '">' +
+               '  <span class="foi-star-half" data-value="' + (n - 0.5) + '">◐</span>' +
+               '  <span class="foi-star-full" data-value="' + n + '">★</span>' +
+               '</span>';
+      }).join(''),
+      '</div>',
+      '<div class="foi-star-label">Tap a star to rate</div>',
+
+      /* Comment */
+      '<div class="foi-review-field">',
+      '  <textarea class="foi-review-comment" placeholder="Tell others what you thought (optional)..." maxlength="500" rows="3"></textarea>',
+      '  <div class="foi-review-charcount">0 / 500</div>',
+      '</div>',
+
+      /* Photo upload */
+      '<div class="foi-review-photo-row">',
+      '  <label class="foi-review-photo-label">',
+      '    📷 Add photo (optional)',
+      '    <input type="file" class="foi-review-photo-input" accept="image/*" style="display:none" />',
+      '  </label>',
+      '  <div class="foi-review-photo-preview"></div>',
+      '</div>',
+
+      '<div class="foi-review-modal-actions">',
+      '  <button class="foi-review-submit-btn" type="button" disabled>Submit Review</button>',
+      '  <button class="foi-review-cancel-btn" type="button">Cancel</button>',
+      '</div>',
+      '<div class="foi-review-modal-status"></div>',
+    ].join('');
+
+    /* Wire close / cancel */
+    modal.querySelector('.foi-review-modal-close').addEventListener('click', function() {
+      modal.remove();
+      showRoleChips();
+    });
+    modal.querySelector('.foi-review-cancel-btn').addEventListener('click', function() {
+      modal.remove();
+      showRoleChips();
+    });
+
+    /* Half-star interaction */
+    var picker     = modal.querySelector('.foi-star-picker');
+    var starLabel  = modal.querySelector('.foi-star-label');
+    var submitBtn  = modal.querySelector('.foi-review-submit-btn');
+    var LABELS     = ['','Terrible 😖','Poor 😕','Okay 😐','Good 😊','Excellent 🤩'];
+    var selectedRating = 0;
+
+    picker.querySelectorAll('.foi-star-half, .foi-star-full').forEach(function(el) {
+      el.addEventListener('click', function() {
+        selectedRating = parseFloat(el.dataset.value);
+        picker.dataset.rating = selectedRating;
+        updateStarDisplay(picker, selectedRating);
+        var labelIdx = Math.ceil(selectedRating);
+        starLabel.textContent = selectedRating + '★ — ' + (LABELS[labelIdx] || '');
+        submitBtn.disabled = false;
+      });
+    });
+
+    /* Comment char counter */
+    var textarea = modal.querySelector('.foi-review-comment');
+    var charCount = modal.querySelector('.foi-review-charcount');
+    textarea.addEventListener('input', function() {
+      charCount.textContent = textarea.value.length + ' / 500';
+    });
+
+    /* Photo upload */
+    var photoInput   = modal.querySelector('.foi-review-photo-input');
+    var photoPreview = modal.querySelector('.foi-review-photo-preview');
+    var photoBase64  = '';
+
+    photoInput.addEventListener('change', function(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        photoPreview.textContent = '⚠️ Max 5 MB';
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        photoBase64 = ev.target.result;
+        var img = document.createElement('img');
+        img.src = photoBase64;
+        img.className = 'foi-review-photo-thumb';
+        photoPreview.innerHTML = '';
+        photoPreview.appendChild(img);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    /* Submit */
+    submitBtn.addEventListener('click', function() {
+      if (selectedRating === 0) return;
+      submitBtn.disabled   = true;
+      submitBtn.textContent = '⏳ Submitting…';
+      var statusEl = modal.querySelector('.foi-review-modal-status');
+
+      fetch('/ai/reviews/submit/', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({
+          order_item_id: orderItemId,
+          rating:        selectedRating,
+          comment:       textarea.value.trim(),
+          image_base64:  photoBase64,
+        }),
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) {
+          modal.remove();
+          if (sourceCard) sourceCard.remove();
+          appendMessage('bot', '🎉 Review submitted! Thank you for helping others decide what to eat.');
+          /* Update pending count */
+          if (pendingReviewData) {
+            pendingReviewData.pending_count = Math.max(0, pendingReviewData.pending_count - 1);
+            pendingReviewData.items = pendingReviewData.items.filter(function(i) {
+              return i.order_item_id !== orderItemId;
+            });
+          }
+          showRoleChips();
+        } else {
+          statusEl.textContent = '❌ ' + (data.error || 'Submit failed. Try again.');
+          statusEl.style.color = '#c0392b';
+          submitBtn.disabled   = false;
+          submitBtn.textContent = 'Submit Review';
+        }
+      })
+      .catch(function() {
+        statusEl.textContent = '❌ Connection error. Try again.';
+        statusEl.style.color = '#c0392b';
+        submitBtn.disabled   = false;
+        submitBtn.textContent = 'Submit Review';
+      });
+    });
+
+    msgContainer.insertBefore(modal, typingEl);
+    scrollBottom();
+  }
+
+  function updateStarDisplay(picker, rating) {
+    picker.querySelectorAll('.foi-star-wrap').forEach(function(wrap) {
+      var val = parseFloat(wrap.dataset.value);
+      var halfEl = wrap.querySelector('.foi-star-half');
+      var fullEl = wrap.querySelector('.foi-star-full');
+      if (rating >= val) {
+        wrap.classList.add('foi-star-lit');
+        wrap.classList.remove('foi-star-half-lit');
+        halfEl.style.color = '#f39c12';
+        fullEl.style.color = '#f39c12';
+      } else if (rating >= val - 0.5) {
+        wrap.classList.add('foi-star-half-lit');
+        wrap.classList.remove('foi-star-lit');
+        halfEl.style.color = '#f39c12';
+        fullEl.style.color = '#ccc';
+      } else {
+        wrap.classList.remove('foi-star-lit', 'foi-star-half-lit');
+        halfEl.style.color = '#ccc';
+        fullEl.style.color = '#ccc';
+      }
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     MOOD + RATING RECOMMENDATION FLOW (conversational)
+  ══════════════════════════════════════════════════════════════ */
+  var moodFlowState = null;
+
+  function triggerMoodRatingFlow(text) {
+    moodFlowState = { mood: text, step: 'veg' };
+    appendMessage('bot', "Got it! 🍽️ One quick question — do you prefer veg or non-veg?");
+    renderMoodFlowChips(['🥦 Veg', '🍗 Non-veg', '🤷 No preference']);
+  }
+
+  function renderMoodFlowChips(options) {
+    suggsEl.innerHTML = '';
+    suggsEl.style.display = 'flex';
+    options.forEach(function(text) {
+      var btn = document.createElement('button');
+      btn.className   = 'foi-chip foi-chip-flow';
+      btn.textContent = text;
+      btn.addEventListener('click', function() {
+        suggsEl.innerHTML = '';
+        suggsEl.style.display = 'none';
+        appendMessage('user', text);
+        handleMoodFlowAnswer(text);
+      });
+      suggsEl.appendChild(btn);
+    });
+  }
+
+  function handleMoodFlowAnswer(answer) {
+    if (!moodFlowState) return;
+
+    if (moodFlowState.step === 'veg') {
+      var lower = answer.toLowerCase();
+      moodFlowState.veg = lower.indexOf('veg') !== -1 && lower.indexOf('non') === -1 ? 'true'
+                        : lower.indexOf('non') !== -1 ? 'false'
+                        : '';
+      moodFlowState.step = 'rating';
+      appendMessage('bot', "Perfect! 🌟 What's the minimum rating you'd like? Higher rating = more loved by customers.");
+      renderMoodFlowChips(['⭐ Any rating', '3★ and above', '4★ and above', '4.5★ and above']);
+
+    } else if (moodFlowState.step === 'rating') {
+      var minRating = answer.indexOf('4.5') !== -1 ? '4.5'
+                    : answer.indexOf('4') !== -1    ? '4.0'
+                    : answer.indexOf('3') !== -1    ? '3.0'
+                    : '0';
+      moodFlowState.minRating = minRating;
+      moodFlowState.step = 'done';
+      fetchRatedRecommendations(moodFlowState.mood, moodFlowState.veg, minRating);
+      moodFlowState = null;
+    }
+  }
+
+  function fetchRatedRecommendations(mood, veg, minRating) {
+    setTyping(true);
+    sendBtn.disabled = true;
+
+    var url = '/ai/recommend/by-ratings/?mood=' + encodeURIComponent(mood) +
+              '&veg=' + encodeURIComponent(veg) +
+              '&min_rating=' + encodeURIComponent(minRating);
+
+    fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      setTyping(false);
+      sendBtn.disabled = false;
+      if (data.intro) appendMessage('bot', data.intro);
+      if (data.items && data.items.length) {
+        appendRatedRecommendationCards(data.items);
+      } else {
+        showRoleChips();
+      }
+    })
+    .catch(function() {
+      setTyping(false);
+      sendBtn.disabled = false;
+      appendMessage('bot', '❌ Connection error. Please try again.');
+      showRoleChips();
+    });
+  }
+
+  function appendRatedRecommendationCards(items) {
+    var wrap = document.createElement('div');
+    wrap.className = 'foi-rec-grid';
+
+    items.forEach(function(item) {
+      var card = document.createElement('div');
+      card.className = 'foi-rec-card foi-rec-card--rated';
+
+      var imgHtml = item.image_url
+        ? '<img class="foi-rec-img" src="' + escHtml(item.image_url) + '" alt="' + escHtml(item.food_title) + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" />'
+          + '<div class="foi-rec-img-placeholder" style="display:none">🍽️</div>'
+        : '<div class="foi-rec-img-placeholder">🍽️</div>';
+
+      var starsHtml = renderStarHtml(item.avg_rating);
+      var reviewLine = item.review_count > 0
+        ? starsHtml + ' <span class="foi-rec-review-count">(' + item.review_count + ' review' + (item.review_count !== 1 ? 's' : '') + ')</span>'
+        : '<span class="foi-rec-no-reviews">No reviews yet</span>';
+
+      card.innerHTML = [
+        '<div class="foi-rec-img-wrap">' + imgHtml + '</div>',
+        '<div class="foi-rec-body">',
+        '  <div class="foi-rec-title">' + escHtml(item.food_title) + '</div>',
+        '  <div class="foi-rec-rating-row">' + reviewLine + '</div>',
+        item.top_review ? '  <div class="foi-rec-top-review">"' + escHtml(item.top_review) + '…"</div>' : '',
+        '  <div class="foi-rec-vendor">🏪 ' + escHtml(item.vendor_name) + '</div>',
+        '  <div class="foi-rec-meta">',
+        '    <span class="foi-rec-category">' + escHtml(item.category) + '</span>',
+        '    <span class="foi-rec-price">₹' + Number(item.price).toFixed(0) + '</span>',
+        '  </div>',
+        '</div>',
+        '<div class="foi-rec-footer foi-rec-footer--two">',
+        '  <a class="foi-rec-order-btn foi-rec-btn-secondary" href="/marketplace/' + escHtml(item.vendor_slug) + '/" target="_blank">🍽️ View Menu</a>',
+        '  <button class="foi-rec-order-btn foi-rec-btn-primary foi-add-cart-btn" data-food-id="' + item.id + '">🛒 Add to Cart</button>',
+        '</div>',
+      ].join('');
+
+      wrap.appendChild(card);
+    });
+
+    wrap.querySelectorAll('.foi-add-cart-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        if (!IS_AUTH) { appendMessage('bot', '🔐 Please log in to add items to your cart!'); return; }
+        addToCart(btn.dataset.foodId, btn);
+      });
+    });
+
+    msgContainer.insertBefore(wrap, typingEl);
+    scrollBottom();
+
+    setTimeout(function() {
+      suggsEl.innerHTML = '';
+      suggsEl.style.display = 'flex';
+      ['Try a different mood 🔄', 'Something spicy 🌶️', 'Sweet cravings 🍰', 'Healthy options 🥗'].forEach(function(text) {
+        var btn = document.createElement('button');
+        btn.className = 'foi-chip';
+        btn.textContent = text;
+        btn.addEventListener('click', function() {
+          suggsEl.style.display = 'none';
+          sendMessage(text);
+        });
+        suggsEl.appendChild(btn);
+      });
+    }, 400);
+  }
+
+  function renderStarHtml(rating) {
+    var html = '<span class="foi-inline-stars">';
+    for (var i = 1; i <= 5; i++) {
+      if (rating >= i) {
+        html += '<span style="color:#f39c12">★</span>';
+      } else if (rating >= i - 0.5) {
+        html += '<span style="color:#f39c12">◐</span>';
+      } else {
+        html += '<span style="color:#ccc">★</span>';
+      }
+    }
+    html += ' <strong>' + rating.toFixed(1) + '</strong></span>';
+    return html;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     ONBOARDING TOUR
+  ══════════════════════════════════════════════════════════════ */
+  var tourActive  = false;
+  var tourStep    = 0;
+
+  var CUSTOMER_TOUR_STEPS = [
+    {
+      title:   "👋 Welcome to FoodOnline!",
+      message: "I'm your AI food assistant. I can help you discover food, track orders, and find restaurants near you.",
+      chips:   ['Next →'],
+      arrow:   null,
+    },
+    {
+      title:   "🍽️ Tell me your mood",
+      message: "Just say something like 'I'm feeling spicy' or tap a mood chip below — I'll find the perfect dish for you!",
+      chips:   ['Comfort food 🛋️', 'Something spicy 🌶️', 'Next →'],
+      arrow:   'chips',
+      highlight: '#foi-suggestions',
+    },
+    {
+      title:   "⭐ Rate your food",
+      message: "After your order is delivered, I'll remind you to rate it. Your reviews help others find great food!",
+      chips:   ['Got it! Next →'],
+      arrow:   null,
+    },
+    {
+      title:   "📦 Track & reorder",
+      message: "Say 'track my order' anytime to check your order status. Or 'order again' to reorder your favourites!",
+      chips:   ['Start exploring! 🚀'],
+      arrow:   null,
+      final:   true,
+    },
+  ];
+
+  var VENDOR_TOUR_STEPS = [
+    {
+      title:   "👋 Welcome, Chef!",
+      message: "I'm your AI menu assistant. I can generate food items, compare pricing, and help grow your restaurant.",
+      chips:   ['Next →'],
+    },
+    {
+      title:   "🍱 Generate menu items",
+      message: "Just describe a dish — like 'spicy paneer burger' — and I'll generate the title, description, price, and tags instantly!",
+      chips:   ['Try: Spicy paneer burger 🍱', 'Next →'],
+    },
+    {
+      title:   "💰 Compare pricing",
+      message: "Say 'compare my pricing' to see how your menu stacks up against other restaurants in your city.",
+      chips:   ['Start building! 🚀'],
+      final: true,
+    },
+  ];
+
+  function checkOnboardingTour() {
+    fetch('/ai/onboarding/status/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success && data.show_tour) {
+        tourStep = data.current_step || 0;
+        /* Delay so page settles, then show tour when chat opens */
+        setTimeout(function() {
+          if (!isOpen) {
+            /* Flash the FAB to draw attention */
+            fab.classList.add('foi-fab-pulse');
+            setTimeout(function() { fab.classList.remove('foi-fab-pulse'); }, 3000);
+          }
+          window._foiShowTour = true;
+        }, 2000);
+      }
+    })
+    .catch(function() {});
+  }
+
+  /* Modified openChat calls this */
+  function maybeStartTour() {
+    if (!window._foiShowTour || tourActive) return;
+    window._foiShowTour = false;
+    tourActive = true;
+    var steps = currentRole === 'vendor' ? VENDOR_TOUR_STEPS : CUSTOMER_TOUR_STEPS;
+    showTourStep(steps, tourStep);
+  }
+
+  function showTourStep(steps, stepIndex) {
+    if (stepIndex >= steps.length) {
+      completeTour();
+      return;
+    }
+    var step = steps[stepIndex];
+
+    /* Tour message bubble with special styling */
+    var wrapper = document.createElement('div');
+    wrapper.className = 'foi-msg foi-bot foi-tour-msg';
+    wrapper.dataset.tourStep = stepIndex;
+
+    var bubble = document.createElement('div');
+    bubble.className = 'foi-bubble foi-tour-bubble';
+    bubble.innerHTML = '<strong class="foi-tour-title">' + escHtml(step.title) + '</strong><br>' +
+                       escHtml(step.message) +
+                       '<div class="foi-tour-progress">' + (stepIndex + 1) + ' / ' + steps.length + '</div>';
+
+    var time = document.createElement('div');
+    time.className = 'foi-msg-time';
+    time.textContent = formatTime(new Date());
+
+    wrapper.appendChild(bubble);
+    wrapper.appendChild(time);
+    msgContainer.insertBefore(wrapper, typingEl);
+    scrollBottom();
+
+    /* Tour chips */
+    suggsEl.innerHTML = '';
+    suggsEl.style.display = 'flex';
+    step.chips.forEach(function(chipText) {
+      var btn = document.createElement('button');
+      btn.className   = 'foi-chip foi-chip-tour';
+      btn.textContent = chipText;
+      btn.addEventListener('click', function() {
+        suggsEl.innerHTML = '';
+
+        var isFinalChip = chipText.indexOf('→') !== -1 || chipText.indexOf('🚀') !== -1 || chipText.indexOf('Next') !== -1;
+
+        /* If it's a real food chip (not navigation), send it as a message */
+        if (!isFinalChip) {
+          tourActive = false; /* pause tour, let user explore */
+          sendMessage(chipText);
+          return;
+        }
+
+        /* Advance tour */
+        tourStep = stepIndex + 1;
+        fetch('/ai/onboarding/complete/', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+          body:    JSON.stringify({ step: tourStep }),
+        }).catch(function() {});
+
+        if (step.final) {
+          completeTour();
+        } else {
+          showTourStep(steps, tourStep);
+        }
+      });
+      suggsEl.appendChild(btn);
+    });
+  }
+
+  function completeTour() {
+    tourActive = false;
+    fetch('/ai/onboarding/complete/', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body:    JSON.stringify({ step: 99 }),
+    }).catch(function() {});
+
+    appendMessage('bot', "🎉 You're all set! I'm here whenever you need me. Just open the chat and tell me what you're craving!");
+    showRoleChips();
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     PROACTIVE DEAL NUDGE
+     Fires once per page load when customer opens chatbot.
+     Silent — no typing indicator, no chip disruption.
+  ══════════════════════════════════════════════════════════════ */
+  function triggerNudge() {
+    if (!IS_AUTH || currentRole !== 'customer' || nudgeShown) return;
+    nudgeShown = true;
+
+    fetch('/ai/nudge/', { method: 'GET' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.success && data.message) {
+        /* Small delay so welcome message renders first */
+        setTimeout(function () {
+          appendNudgeMessage(data.message);
+        }, 800);
+      }
+    })
+    .catch(function () {});   /* Silent — nudge failure never bothers the user */
+  }
+
+  function appendNudgeMessage(text) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'foi-msg foi-bot foi-nudge-msg';
+
+    var bubble = document.createElement('div');
+    bubble.className = 'foi-bubble foi-nudge-bubble';
+    bubble.textContent = text;
+
+    var time = document.createElement('div');
+    time.className   = 'foi-msg-time';
+    time.textContent = formatTime(new Date());
+
+    wrapper.appendChild(bubble);
+    wrapper.appendChild(time);
+    msgContainer.insertBefore(wrapper, typingEl);
+    scrollBottom();
   }
 
   /* ══════════════════════════════════════════════════════════════
@@ -1480,14 +2347,28 @@ function renderPostCardChips(savedTitle, savedCategory) {
         '    <span class="foi-rec-price">₹' + Number(item.price).toFixed(0) + '</span>',
         '  </div>',
         '</div>',
-        '<div class="foi-rec-footer">',
-        '  <a class="foi-rec-order-btn" href="/marketplace/' + escHtml(item.vendor_slug) + '/" target="_blank">',
-        '    🛒 Order Again',
+        '<div class="foi-rec-footer foi-rec-footer--two">',
+        '  <a class="foi-rec-order-btn foi-rec-btn-secondary" href="/marketplace/' + escHtml(item.vendor_slug) + '/" target="_blank">',
+        '    🍽️ View Menu',
         '  </a>',
+        '  <button class="foi-rec-order-btn foi-rec-btn-primary foi-add-cart-btn" data-food-id="' + item.id + '">',
+        '    🛒 Add to Cart',
+        '  </button>',
         '</div>',
       ].join('');
 
       wrap.appendChild(card);
+    });
+
+    /* Wire Add to Cart buttons */
+    wrap.querySelectorAll('.foi-add-cart-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!IS_AUTH) {
+          appendMessage('bot', '🔐 Please log in to add items to your cart!');
+          return;
+        }
+        addToCart(btn.dataset.foodId, btn);
+      });
     });
 
     msgContainer.insertBefore(wrap, typingEl);
@@ -1566,14 +2447,28 @@ function renderPostCardChips(savedTitle, savedCategory) {
           : '',
         '  <div class="foi-rec-reason">' + escHtml(item.match_reason) + '</div>',
         '</div>',
-        '<div class="foi-rec-footer">',
-        '  <a class="foi-rec-order-btn" href="/marketplace/' + escHtml(item.vendor_slug) + '/" target="_blank">',
-        '    🛒 Order Now',
+        '<div class="foi-rec-footer foi-rec-footer--two">',
+        '  <a class="foi-rec-order-btn foi-rec-btn-secondary" href="/marketplace/' + escHtml(item.vendor_slug) + '/" target="_blank">',
+        '    🍽️ View Menu',
         '  </a>',
+        '  <button class="foi-rec-order-btn foi-rec-btn-primary foi-add-cart-btn" data-food-id="' + item.id + '">',
+        '    🛒 Add to Cart',
+        '  </button>',
         '</div>',
       ].join('');
 
       wrap.appendChild(card);
+    });
+
+    /* Wire Add to Cart buttons */
+    wrap.querySelectorAll('.foi-add-cart-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!IS_AUTH) {
+          appendMessage('bot', '🔐 Please log in to add items to your cart!');
+          return;
+        }
+        addToCart(btn.dataset.foodId, btn);
+      });
     });
 
     msgContainer.insertBefore(wrap, typingEl);
@@ -1603,7 +2498,101 @@ function renderPostCardChips(savedTitle, savedCategory) {
     }, 500);
   }
 
-  /* ── Start ── */
+  /* ══════════════════════════════════════════════════════════════
+     PHASE 6 — NEARBY RESTAURANT DISCOVERY
+  ══════════════════════════════════════════════════════════════ */
+  function triggerNearbyRestaurants() {
+    setTyping(true);
+    sendBtn.disabled = true;
+
+    fetch('/ai/nearby/', { method: 'GET' })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+    .then(function (res) {
+      setTyping(false);
+      sendBtn.disabled = false;
+
+      if (!res.ok || !res.data.success) {
+        appendMessage('bot', '❌ ' + (res.data.error || 'Could not load restaurants.'));
+        showRoleChips();
+        return;
+      }
+
+      if (!res.data.vendors || !res.data.vendors.length) {
+        appendMessage('bot', res.data.message || "No restaurants found nearby!");
+        showRoleChips();
+        return;
+      }
+
+      appendMessage('bot', '🗺️ Here are the restaurants available for you:');
+      appendVendorCards(res.data.vendors);
+      showRoleChips();
+    })
+    .catch(function () {
+      setTyping(false);
+      sendBtn.disabled = false;
+      appendMessage('bot', '❌ Connection error. Please try again.');
+      showRoleChips();
+    });
+  }
+
+  function appendVendorCards(vendors) {
+    var wrap = document.createElement('div');
+    wrap.className = 'foi-vendor-grid';
+
+    vendors.forEach(function (v) {
+      var card = document.createElement('div');
+      card.className = 'foi-vendor-card';
+
+      /* Cover image — prefer cover_photo, fallback profile_picture, fallback placeholder */
+      var imgHtml;
+      if (v.cover_url) {
+        imgHtml = '<img class="foi-vendor-cover" src="' + escHtml(v.cover_url) + '" alt="' + escHtml(v.name) + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" />'
+                + '<div class="foi-vendor-cover-placeholder" style="display:none">🍽️</div>';
+      } else if (v.profile_url) {
+        imgHtml = '<img class="foi-vendor-cover" src="' + escHtml(v.profile_url) + '" alt="' + escHtml(v.name) + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" />'
+                + '<div class="foi-vendor-cover-placeholder" style="display:none">🍽️</div>';
+      } else {
+        imgHtml = '<div class="foi-vendor-cover-placeholder">🍽️</div>';
+      }
+
+      /* Category tags */
+      var tagsHtml = v.categories.map(function (cat) {
+        return '<span class="foi-vendor-tag">' + escHtml(cat) + '</span>';
+      }).join('');
+
+      /* Distance / city badge */
+      var distHtml = v.distance_str
+        ? '<span class="foi-vendor-dist">📍 ' + escHtml(v.distance_str) + '</span>'
+        : '';
+
+      card.innerHTML = [
+        '<div class="foi-vendor-img-wrap">' + imgHtml + '</div>',
+        '<div class="foi-vendor-body">',
+        '  <div class="foi-vendor-name">' + escHtml(v.name) + '</div>',
+        distHtml,
+        '  <div class="foi-vendor-tags">' + (tagsHtml || '<span class="foi-vendor-tag">Restaurant</span>') + '</div>',
+        '</div>',
+        '<div class="foi-vendor-footer foi-vendor-footer--two">',
+        '  <button class="foi-vendor-info-btn" data-vendor-id="' + v.id + '">',
+        '    ℹ️ Info & Hours',
+        '  </button>',
+        '  <a class="foi-vendor-btn" href="/marketplace/' + escHtml(v.slug) + '/" target="_blank">',
+        '    🛒 View Menu',
+        '  </a>',
+        '</div>',
+      ].join('');
+
+      /* Wire Info button */
+      card.querySelector('.foi-vendor-info-btn').addEventListener('click', function () {
+        triggerVendorInfo(v.id, v.name, card);
+      });
+
+      wrap.appendChild(card);
+    });
+
+    msgContainer.insertBefore(wrap, typingEl);
+    scrollBottom();
+  }
   init();
 
 }());

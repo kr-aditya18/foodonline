@@ -4,7 +4,7 @@ from django.contrib import messages
 from accounts.forms import UserProfileForm, UserInfoForm
 from accounts.models import UserProfile
 from orders.models import Order, OrderedFood
-
+from ai_assistant.models import FoodReview 
 
 @login_required(login_url='login')
 def cprofile(request):
@@ -40,16 +40,25 @@ def my_orders(request):
     context = {'orders': orders}
     return render(request, 'customers/my_orders.html', context)
 
-
 @login_required(login_url='login')
 def order_detail(request, order_number):
     order = get_object_or_404(Order, order_number=order_number,
                               user=request.user, is_ordered=True)
     ordered_food = OrderedFood.objects.filter(order=order)
     subtotal = sum(item.amount for item in ordered_food)
+
+    # Phase 9 — reviewed item IDs
+    reviewed_item_ids = set(
+        FoodReview.objects.filter(
+            customer=request.user,
+            order=order
+        ).values_list('order_item_id', flat=True)
+    )
+
     context = {
-        'order':        order,
-        'ordered_food': ordered_food,
-        'subtotal':     subtotal,
+        'order':               order,
+        'ordered_food':        ordered_food,
+        'subtotal':            subtotal,
+        'reviewed_item_ids':   reviewed_item_ids,   # ← ADD THIS
     }
     return render(request, 'orders/order_detail.html', context)

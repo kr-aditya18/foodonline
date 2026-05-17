@@ -91,7 +91,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
@@ -148,9 +148,9 @@ MANAGERS = ADMINS
 # }
 
 AI_RATE_LIMITS = {
-    'user_per_minute': 2,   # change to 2 so you hit it fast
-    'user_per_day':    5,
-    'guest_per_day':   3,
+    'user_per_minute': 10,
+    'user_per_day':    200,
+    'guest_per_day':   20,
 }
 
 # ── Phase 10: Logging (local dev) ────────────────────────────────────────────

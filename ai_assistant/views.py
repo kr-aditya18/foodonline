@@ -32,6 +32,33 @@ logger = logging.getLogger(__name__)
 
 
 # ──────────────────────────────────────────────────────────────
+# LOGGING HELPER
+# ──────────────────────────────────────────────────────────────
+
+def log_interaction(user=None, role='customer', ip=None, feature='chat',
+                    user_message='', ai_reply='', success=True, error_message='',
+                    model_used='', response_time_ms=0, session_key=''):
+    """Safely log an AI interaction to AIInteractionLog. Never raises."""
+    try:
+        from .models import AIInteractionLog
+        AIInteractionLog.objects.create(
+            user             = user if (user and getattr(user, 'is_authenticated', False)) else None,
+            role             = role,
+            ip_address       = ip,
+            session_key      = session_key or '',
+            feature          = feature,
+            user_message     = user_message[:1000] if user_message else '',
+            ai_reply         = ai_reply[:2000] if ai_reply else '',
+            model_used       = model_used or '',
+            success          = success,
+            error_message    = error_message or '',
+            response_time_ms = response_time_ms or 0,
+        )
+    except Exception as e:
+        logger.warning(f"[log_interaction] Failed to log: {e}")
+
+
+# ──────────────────────────────────────────────────────────────
 # MAIN CHAT ENDPOINT
 # ──────────────────────────────────────────────────────────────
 
@@ -705,6 +732,363 @@ def vendor_info_view(request, vendor_id):
 # ──────────────────────────────────────────────────────────────
 # PROACTIVE DEAL NUDGE
 # ──────────────────────────────────────────────────────────────
+
+# ──────────────────────────────────────────────────────────────
+# REVIEW SYSTEM VIEWS
+# ──────────────────────────────────────────────────────────────
+
+@login_required
+@require_http_methods(['GET'])
+def pending_reviews_view(request):
+    """
+    GET /ai/reviews/pending/
+    Returns unreviewed delivered order items for the chatbot nudge.
+    """
+    from .models import ReviewReminder, FoodReview
+    role = get_user_role(request.user)
+    if role != 'customer':
+        return JsonResponse({'success': True, 'pending_count': 0, 'items': []})
+
+    already_reviewed = set(
+        FoodReview.objects.filter(customer=request.user)
+        .values_list('order_item_id', flat=True)
+    )
+
+    reminders = (
+        ReviewReminder.objects
+        .filter(customer=request.user, is_dismissed=False)
+        .exclude(order_item_id__in=already_reviewed)
+        .select_related('order_item__fooditem__vendor', 'order_item__order')
+        .order_by('-created_at')[:10]
+    )
+
+    items = []
+    for r in reminders:
+        oi = r.order_item
+        items.append({
+            'reminder_id':   r.id,
+            'order_item_id': oi.id,
+            'food_title':    oi.fooditem.food_title,
+            'vendor_name':   oi.fooditem.vendor.vendor_name,
+            'order_number':  oi.order.order_number,
+            'price':         float(oi.price),
+        })
+
+    return JsonResponse({
+        'success':       True,
+        'pending_count': len(items),
+        'items':         items,
+    })
+
+
+@login_required
+@require_POST
+def submit_review_view(request):
+    """
+    POST /ai/reviews/submit/
+    Body: { order_item_id, rating, comment, image_base64 (optional) }
+    """
+    import base64
+    import re
+    from django.core.files.base import ContentFile
+    from .models import FoodReview, ReviewReminder, AIInteractionLog
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+    order_item_id = body.get('order_item_id')
+    rating        = body.get('rating')
+    comment       = body.get('comment', '').strip()
+    image_b64     = body.get('image_base64', '').strip()
+
+    if not order_item_id or rating is None:
+        return JsonResponse({'success': False, 'error': 'order_item_id and rating are required'}, status=400)
+
+    try:
+        rating = float(rating)
+    except (ValueError, TypeError):
+        return JsonResponse({'success': False, 'error': 'Invalid rating value'}, status=400)
+
+    if rating < 0.5 or rating > 5.0:
+        return JsonResponse({'success': False, 'error': 'Rating must be between 0.5 and 5.0'}, status=400)
+
+    # Round to nearest 0.5
+    rating = round(rating * 2) / 2
+
+    from orders.models import OrderedFood
+    try:
+        order_item = OrderedFood.objects.select_related(
+            'order', 'fooditem'
+        ).get(id=order_item_id, user=request.user)
+    except OrderedFood.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Order item not found'}, status=404)
+
+    # Eligibility: order must be Completed
+    if order_item.order.status != 'Completed':
+        return JsonResponse({
+            'success': False,
+            'error': 'Reviews are only available after your order is delivered.'
+        }, status=403)
+
+    # Check for existing review (edit mode)
+    review, created = FoodReview.objects.get_or_create(
+        customer=request.user,
+        order_item=order_item,
+        defaults={
+            'food_item': order_item.fooditem,
+            'order':     order_item.order,
+            'rating':    rating,
+            'comment':   comment,
+        }
+    )
+
+    if not created:
+        review.rating  = rating
+        review.comment = comment
+
+    # Handle image upload
+    if image_b64:
+        try:
+            match = re.match(r'data:(image/\w+);base64,(.+)', image_b64, re.DOTALL)
+            if match:
+                mime     = match.group(1)
+                img_data = base64.b64decode(match.group(2).strip())
+                ext_map  = {'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp'}
+                ext      = ext_map.get(mime, 'jpg')
+                filename = f"review_{request.user.id}_{order_item_id}.{ext}"
+                review.image.save(filename, ContentFile(img_data), save=False)
+        except Exception as e:
+            logger.warning(f"[Review] Image save failed: {e}")
+
+    review.save()
+
+    # Mark reminder dismissed
+    ReviewReminder.objects.filter(
+        customer=request.user,
+        order_item=order_item,
+    ).update(is_dismissed=True)
+
+    # Log to AIInteractionLog
+    log_interaction(
+        user=request.user,
+        role='customer',
+        ip=get_client_ip(request),
+        feature='review_submit',
+        user_message=f"Reviewed: {order_item.fooditem.food_title} ({rating}★)",
+        ai_reply='Review saved',
+        success=True,
+    )
+
+    return JsonResponse({
+        'success':    True,
+        'review_id':  review.id,
+        'created':    created,
+        'message':    f"{'Thanks for your review' if created else 'Review updated'}! ⭐",
+    })
+
+
+@login_required
+@require_POST
+def dismiss_reminder_view(request):
+    """
+    POST /ai/reviews/dismiss/
+    Body: { order_item_id } or {} to dismiss all
+    """
+    from .models import ReviewReminder
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        body = {}
+
+    order_item_id = body.get('order_item_id')
+    qs = ReviewReminder.objects.filter(customer=request.user, is_dismissed=False)
+
+    # Only dismiss specific item if provided, NOT all reminders
+    # "Maybe later" should only snooze — not permanently dismiss everything
+    if order_item_id:
+        qs = qs.filter(order_item_id=order_item_id)
+        updated = qs.update(is_dismissed=True)
+    else:
+        # No specific item — just snooze for this session, don't dismiss in DB
+        # The sessionStorage flag handles the session-level snooze
+        updated = 0
+
+    return JsonResponse({'success': True, 'dismissed': updated})
+
+
+@require_http_methods(['GET'])
+def food_reviews_view(request, food_id):
+    """
+    GET /ai/reviews/food/<food_id>/
+    Returns visible reviews + avg_rating + breakdown for a food item.
+    """
+    from .models import FoodReview
+    from django.db.models import Avg, Count
+
+    from menu.models import FoodItem
+    try:
+        food = FoodItem.objects.get(id=food_id, is_available=True)
+    except FoodItem.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Food item not found'}, status=404)
+
+    reviews_qs = FoodReview.objects.filter(
+        food_item=food, is_visible=True
+    ).select_related('customer').order_by('-created_at')
+
+    stats = reviews_qs.aggregate(
+        avg_rating=Avg('rating'),
+        total=Count('id'),
+    )
+
+    reviews = []
+    for r in reviews_qs[:10]:
+        image_url = None
+        if r.image:
+            try:
+                image_url = r.image.url
+            except Exception:
+                pass
+        reviews.append({
+            'rating':    float(r.rating),
+            'comment':   r.comment,
+            'image_url': image_url,
+            'customer':  r.customer.first_name or r.customer.email.split('@')[0],
+            'date':      r.created_at.strftime('%d %b %Y'),
+            'verified':  r.is_verified_purchase,
+        })
+
+    return JsonResponse({
+        'success':      True,
+        'food_title':   food.food_title,
+        'avg_rating':   round(float(stats['avg_rating'] or 0), 1),
+        'total_reviews': stats['total'],
+        'reviews':      reviews,
+    })
+
+
+@require_http_methods(['GET'])
+def recommend_by_ratings_view(request):
+    """
+    GET /ai/recommend/by-ratings/?mood=comfort&veg=true&min_rating=4.0
+    Chatbot follow-up flow: mood + veg preference + min rating filter.
+    """
+    from .customer_utils import recommend_by_ratings_query, format_recommendations_for_ai
+
+    mood       = request.GET.get('mood', '').strip()
+    veg        = request.GET.get('veg', '').strip().lower()
+    min_rating = request.GET.get('min_rating', '0').strip()
+
+    try:
+        min_rating = float(min_rating)
+    except ValueError:
+        min_rating = 0.0
+
+    veg_pref = None
+    if veg in ('true', 'yes', '1', 'veg', 'vegetarian'):
+        veg_pref = 'veg'
+    elif veg in ('false', 'no', '0', 'nonveg', 'non-veg', 'non veg'):
+        veg_pref = 'nonveg'
+
+    user  = request.user if request.user.is_authenticated else None
+    items = recommend_by_ratings_query(
+        mood=mood, veg_pref=veg_pref, min_rating=min_rating,
+        customer_user=user, limit=5
+    )
+
+    if not items:
+        return JsonResponse({
+            'success': True,
+            'intro':   "😕 No dishes found matching your preferences right now. Try lowering the rating filter or browse all restaurants!",
+            'items':   [],
+        })
+
+    # Build AI intro
+    ai_prompt = (
+        f"You are a friendly food assistant.\n"
+        f"Customer wants: mood='{mood}', veg_pref='{veg_pref or 'any'}', min_rating={min_rating}★\n"
+        f"Top {len(items)} dishes found:\n"
+        + "\n".join(
+            f"- {i['food_title']} ({i['avg_rating']}★ from {i['review_count']} reviews) at ₹{i['price']:.0f} — {i['vendor_name']}"
+            for i in items
+        )
+        + "\n\nWrite a warm 2-sentence intro (max 50 words). Use 1 emoji. Don't list dishes."
+    )
+
+    result = call_openrouter([{'role': 'user', 'content': ai_prompt}], role='customer')
+    intro  = result['reply'] if result['success'] else f"🍽️ Here are the top-rated dishes for your {mood or 'current'} mood!"
+
+    log_interaction(
+        user=user, role='customer',
+        ip=get_client_ip(request),
+        feature='recommend_rated',
+        user_message=f"mood={mood} veg={veg_pref} min_rating={min_rating}",
+        ai_reply=intro,
+        success=True,
+    )
+
+    return JsonResponse({'success': True, 'intro': intro, 'items': items})
+
+
+# ──────────────────────────────────────────────────────────────
+# ONBOARDING TOUR VIEWS
+# ──────────────────────────────────────────────────────────────
+
+@login_required
+@require_http_methods(['GET'])
+def onboarding_status_view(request):
+    """
+    GET /ai/onboarding/status/
+    Returns whether the user needs the onboarding tour shown.
+    """
+    from .models import OnboardingTour
+    role = get_user_role(request.user)
+
+    tour, _ = OnboardingTour.objects.get_or_create(user=request.user)
+
+    return JsonResponse({
+        'success':         True,
+        'show_tour':       not tour.tour_completed,
+        'current_step':    tour.tour_step,
+        'role':            role,
+    })
+
+
+@login_required
+@require_POST
+def onboarding_complete_view(request):
+    """
+    POST /ai/onboarding/complete/
+    Body: { step } — marks tour step done, or completes tour if final step.
+    """
+    from .models import OnboardingTour
+    from django.utils import timezone
+
+    try:
+        body = json.loads(request.body)
+        step = int(body.get('step', 0))
+    except (json.JSONDecodeError, ValueError):
+        step = 0
+
+    role = get_user_role(request.user)
+    final_step = 4 if role == 'customer' else 3
+
+    tour, _ = OnboardingTour.objects.get_or_create(user=request.user)
+    tour.tour_step = step
+
+    if step >= final_step:
+        tour.tour_completed = True
+        tour.completed_at   = timezone.now()
+
+    tour.save(update_fields=['tour_step', 'tour_completed', 'completed_at'])
+
+    return JsonResponse({
+        'success':   True,
+        'completed': tour.tour_completed,
+    })
+
 
 @require_http_methods(['GET'])
 def proactive_nudge_view(request):

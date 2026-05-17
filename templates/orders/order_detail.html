@@ -95,6 +95,33 @@
                                 </div>
                             </div>
 
+                            <!-- Review Section — only for Completed orders -->
+                            {% if order.status == 'Completed' %}
+                            <div class="mt-4 p-3" style="background:#fff8f0; border-radius:8px; border:1px solid #ffe0b2;">
+                                <h6 style="margin-bottom:12px;"><i class="fa fa-star" style="color:#f39c12;"></i> Rate Your Order</h6>
+                                {% for item in ordered_food %}
+                                <div class="review-item-row" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5e6d0;"
+                                     data-order-item-id="{{ item.id }}"
+                                     data-food-title="{{ item.fooditem.food_title }}">
+                                    <span style="font-size:14px;">{{ item.fooditem.food_title }}</span>
+                                    {% if item.id in reviewed_item_ids %}
+                                    <span style="color:#27ae60;font-size:13px;">✅ Reviewed</span>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-warning open-review-btn"
+                                            data-order-item-id="{{ item.id }}"
+                                            data-food-title="{{ item.fooditem.food_title }}"
+                                            style="font-size:12px;">
+                                        ⭐ Write Review
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                                <p style="font-size:11px;color:#888;margin-top:10px;margin-bottom:0;">
+                                    You can also review from the AI chatbot 💬
+                                </p>
+                            </div>
+                            {% endif %}
+
                             <!-- Delivery Address -->
                             <div class="mt-3 p-3" style="background:#f9f9f9; border-radius:8px;">
                                 <strong><i class="fa fa-map-marker text-danger"></i> Delivery Address</strong>
@@ -111,4 +138,22 @@
         </div>
     </div>
 </div>
+{% if order.status == 'Completed' %}
+<script>
+document.querySelectorAll('.open-review-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var orderItemId = parseInt(btn.dataset.orderItemId);
+        var foodTitle   = btn.dataset.foodTitle;
+        /* Open chatbot and trigger review modal */
+        var fab = document.getElementById('foi-fab');
+        if (fab) fab.click();
+        setTimeout(function() {
+            if (window.foiOpenReviewModal) {
+                window.foiOpenReviewModal(orderItemId, foodTitle, null);
+            }
+        }, 600);
+    });
+});
+</script>
+{% endif %}
 {% endblock %}
