@@ -1,4 +1,5 @@
 from django.db import models
+from cloudinary.models import CloudinaryField
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -171,7 +172,7 @@ class FoodReview(models.Model):
                      validators=[MinValueValidator(0.5), MaxValueValidator(5.0)]
                  )
     comment    = models.TextField(blank=True, max_length=500)
-    image      = models.ImageField(upload_to='review_images/', blank=True, null=True)
+    image      = CloudinaryField('image', folder='review_images', blank=True, null=True)
     is_verified_purchase = models.BooleanField(default=True)
     is_visible = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
