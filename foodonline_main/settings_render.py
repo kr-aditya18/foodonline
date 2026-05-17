@@ -83,48 +83,7 @@ EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_KEY')
 EMAIL_TIMEOUT       = 30
 DEFAULT_FROM_EMAIL  = os.environ.get('DEFAULT_FROM_EMAIL', 'UrbanEats <django.urbaneats@gmail.com>')
 
-# ── Logging — visible in Render log dashboard ─────────────────────────────────
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '[{levelname}] {asctime} {name} — {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-    },
-    'loggers': {
-        # Shows exact SMTP errors from Django's mail module
-        'django.core.mail': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-        # Shows [EMAIL OK] / [EMAIL FAILED] lines from utils.py
-        'accounts.utils': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-        # General Django warnings/errors
-        'django': {
-            'handlers': ['console'],
-            'level': 'WARNING',
-            'propagate': True,
-        },
-        'ai_assistant': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    },
-}
+
 
 # chatbot keys
 OPENROUTER_API_KEY = config('OPENROUTER_API_KEY', default='')
