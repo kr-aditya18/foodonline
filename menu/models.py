@@ -1,5 +1,5 @@
 from django.db import models
-from cloudinary.models import CloudinaryField
+
 from vendor.models import Vendor
 # Create your models here.
 class Category(models.Model):
@@ -29,7 +29,7 @@ class FoodItem(models.Model):
     slug = models.SlugField(max_length=100,unique=True)
     description = models.TextField(max_length=250,blank=True)
     price = models.DecimalField(max_digits=10,decimal_places=2)
-    image = CloudinaryField('image', folder='foodimages', blank=True, null=True)
+    image = models.ImageField(upload_to='foodimages', blank=True, null=True)
     is_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

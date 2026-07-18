@@ -17,3 +17,5 @@ six==1.17.0
 sqlparse==0.5.3
 tzdata==2025.3
 urllib3==2.6.3
+django-storages==1.14.4
+boto3==1.35.0

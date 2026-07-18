@@ -1,5 +1,4 @@
 from django.db import models
-from cloudinary.models import CloudinaryField
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.gis.db import models as gismodels
 from django.contrib.gis.geos import Point
@@ -86,8 +85,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User,on_delete=models.CASCADE,blank=True,null=True)
-    profile_picture = CloudinaryField('profile_picture', folder='users/profile_pictures', blank=True, null=True)
-    cover_photo     = CloudinaryField('cover_photo',     folder='users/cover_photos',     blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='users/profile_pictures', blank=True, null=True)
+    cover_photo     = models.ImageField(upload_to='users/cover_photos', blank=True, null=True)
     address= models.CharField(max_length=250,blank=True,null=True)
     country= models.CharField(max_length=50,blank=True,null=True)
     state= models.CharField(max_length=50,blank=True,null=True)
