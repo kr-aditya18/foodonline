@@ -55,6 +55,6 @@ RUN mkdir -p /app/staticfiles && \
 
 RUN chmod +x start.sh
 
-EXPOSE 10000
+EXPOSE 8000
 
 CMD ["./start.sh"]

@@ -2,12 +2,10 @@
 set -e
 
 echo "==> Running migrations..."
-python manage.py migrate \
-    --settings=foodonline_main.settings_render \
-    --noinput
+python manage.py migrate --noinput
 
 echo "==> Creating superuser if not exists..."
-python manage.py shell --settings=foodonline_main.settings_render << 'EOF'
+python manage.py shell << 'EOF'
 import os
 from accounts.models import User
 email = os.environ.get('DJANGO_SUPERUSER_EMAIL')
@@ -29,7 +27,7 @@ EOF
 
 echo "==> Starting Gunicorn..."
 exec gunicorn foodonline_main.wsgi:application \
-    --bind 0.0.0.0:$PORT \
+    --bind 0.0.0.0:${PORT:-8000} \
     --workers 2 \
     --timeout 300 \
     --log-level info
