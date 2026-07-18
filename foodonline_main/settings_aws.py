@@ -16,9 +16,12 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
 ]
 
-# ── GDAL / GEOS (Linux paths inside Docker on EC2 — same as Render) ─────────
-GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
-GEOS_LIBRARY_PATH = '/usr/lib/libgeos_c.so'
+# ── GDAL / GEOS (Linux paths inside Docker on EC2; base settings.py already
+# handles Windows locally, so only override when actually on Linux) ─────────
+import platform
+if platform.system() != 'Windows':
+    GDAL_LIBRARY_PATH = '/usr/lib/libgdal.so'
+    GEOS_LIBRARY_PATH = '/usr/lib/libgeos_c.so'
 
 # ── Database (RDS) ────────────────────────────────────────────────────────
 DATABASES = {
