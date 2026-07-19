@@ -69,5 +69,13 @@ RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID')
 RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET')
 
 # TODO (Phase 10/11): EMAIL_BACKEND (Brevo, same as settings_render.py),
-# CSRF_TRUSTED_ORIGINS, SECURE_PROXY_SSL_HEADER, cookie security settings —
-# depends on HTTP-only vs HTTPS decision for the Elastic IP.
+
+EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST          = 'smtp-relay.brevo.com'
+EMAIL_PORT          = 2525
+EMAIL_USE_TLS       = True
+EMAIL_USE_SSL       = False
+EMAIL_HOST_USER     = os.environ.get('BREVO_SMTP_LOGIN')
+EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_KEY')
+EMAIL_TIMEOUT       = 30
+DEFAULT_FROM_EMAIL  = os.environ.get('DEFAULT_FROM_EMAIL', 'UrbanEats <django.urbaneats@gmail.com>')
