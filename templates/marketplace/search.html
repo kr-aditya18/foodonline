@@ -52,9 +52,10 @@
             <div class="row mb-5">
                 <div class="col-lg-12">
                     <div class="listing fancy">
-                        {% if vendors %}
+                        {% if vendor_list %}
                         <ul class="row" style="list-style:none; padding:0;">
-                            {% for vendor in vendors %}
+                            {% for item in vendor_list %}
+                            {% with vendor=item.vendor is_open=item.is_open %}
                             <li class="col-lg-6 col-md-6 col-sm-6 col-xs-12 mb-3">
                                 <div class="list-post featured" style="background:#fff; border-radius:10px; padding:15px; box-shadow:0 2px 8px rgba(0,0,0,0.07); display:flex; align-items:center; gap:15px;">
                                     <div class="img-holder" style="flex-shrink:0;">
@@ -76,6 +77,11 @@
                                                style="color:#333; text-decoration:none; font-weight:600;">
                                                 {{ vendor.vendor_name }}
                                             </a>
+                                            {% if is_open %}
+                                            <span style="background:#27ae60;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">OPEN</span>
+                                            {% else %}
+                                            <span style="background:#c0392b;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">CLOSED</span>
+                                            {% endif %}
                                         </h5>
                                         {% if vendor.user_profile.city and vendor.user_profile.state %}
                                         <span style="font-size:13px; color:#777;">
@@ -111,6 +117,7 @@
                                     </div>
                                 </div>
                             </li>
+                            {% endwith %}
                             {% endfor %}
                         </ul>
                         {% else %}
@@ -190,7 +197,7 @@
             {% endif %}
 
             <!-- ── No results at all ──────────────────────────────────────── -->
-            {% if not vendors and not food_items %}
+            {% if not vendor_list and not food_items %}
             <div class="row">
                 <div class="col-lg-12">
                     <div class="text-center p-5">
