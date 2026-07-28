@@ -47,6 +47,23 @@
   .list-post .img-holder {
     position: relative;
   }
+
+  /* ── Radius-without-location inline warning ── */
+  #radius-warning {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    background: #fff4e5;
+    color: #b45309;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  #radius-warning.show {
+    display: flex;
+  }
 </style>
 
 <div class="main-section">
@@ -70,7 +87,7 @@
 
         <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
           <div class="main-search fancy bg-holder">
-            <form action="{% url 'search' %}" method="GET">
+            <form action="{% url 'search' %}" method="GET" id="home-search-form">
               <div class="row">
 
                 <!-- Restaurant Name -->
@@ -130,6 +147,16 @@
                   </div>
                 </div>
 
+              </div>
+
+              <!-- Inline warning: radius picked but no location set -->
+              <div class="row">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                  <div id="radius-warning">
+                    <span>⚠️</span>
+                    <span>Please set a location (type an area or tap 📍) so the radius filter has something to measure from.</span>
+                  </div>
+                </div>
               </div>
             </form>
           </div>
